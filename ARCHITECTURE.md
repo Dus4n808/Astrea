@@ -5,34 +5,53 @@ entre appareils via CloudKit. Une cible app + une cible de tests ; un seul code 
 les différences de plateforme sont gérées par la taille d'écran (sidebar vs
 tab bar) et quelques `#if os(macOS)`.
 
-## Les 4 dossiers
+## Les dossiers
+
+Chaque dossier répond à une question : « je cherche quoi ? ». On descend du
+plus global (l'app, la navigation) vers le plus précis (un écran, un modèle).
 
 ```
 Planner/
-├── App/            Démarrage + navigation globale
-│   ├── Planner.swift          @main, branche la base de données
-│   ├── RootView.swift         choisit TabShell (iPhone) ou SidebarShell (Mac/iPad)
+├── App/            Démarrage de l'app
+│   ├── Planner.swift          @main, branche la base de données et Siri
 │   ├── AppState.swift         section affichée + feuille d'édition ouverte
-│   ├── AppSection.swift       liste des sections (Calendrier, Agenda…)
-│   └── Shells/                les deux « coques » de navigation
+│   └── AppSection.swift       liste des sections (Calendrier, Agenda…)
 │
-├── Core/           Le cœur, sans aucune interface
-│   ├── Models/                Course, PlannerItem, ChecklistItem (SwiftData)
-│   ├── Persistence/           création de la base (iCloud + repli local) + exemples
-│   └── Calendar/              calculs de dates (grille du mois, index par jour)
+├── MainView/       La vue principale et la navigation
+│   ├── RootView.swift         LA vue racine : choisit la coque et présente l'éditeur
+│   ├── TabShell.swift         coque iPhone (tab bar + le « + »)
+│   ├── SidebarShell.swift     coque iPad / Mac (sidebar + contenu)
+│   └── AddItemButton.swift    le « + » de la barre d'outils
 │
-├── DesignSystem/   Les briques visuelles réutilisables
+├── Screens/        Un dossier par écran
+│   ├── Calendar/              vue mois (grille, en-tête, jour sélectionné)
+│   ├── Agenda/                liste par jour + progression de la semaine
+│   ├── Courses/               liste des cours + feuille de création
+│   ├── ItemEditor/            feuille créer / modifier un élément
+│   └── ComingSoon/            écran temporaire (Années, Réglages)
+│
+├── Design/         À quoi l'app ressemble
 │   ├── Theme.swift            couleurs, polices, espacements (= variables Figma)
+│   ├── CourseColor+Color.swift
 │   └── Components/            StarLogo, EventPill, CourseChip, ItemRow, FlowLayout
 │
-└── Features/       Un dossier par fonctionnalité
-    ├── Calendar/              vue mois
-    ├── Agenda/                liste par jour + progression de la semaine
-    ├── Editor/                feuille créer / modifier un élément
-    ├── Courses/               gestion des cours
-    ├── Intents/               Siri et Raccourcis (entités, actions, phrases)
-    ├── ComingSoon/            écran temporaire (Années, Réglages)
-    └── Shared/                petits morceaux utilisés par plusieurs features
+├── Models/         Les données
+│   ├── PlannerItem, ChecklistItem, Course, CourseColor, ItemKind   (SwiftData)
+│   ├── PlannerItem+Display.swift  couleur et sous-titre d'un élément
+│   └── Database/              création de la base (iCloud + repli local) + exemples
+│
+├── Logic/          Les calculs, sans aucune interface
+│   ├── MonthGrid.swift        les 42 cases d'un mois
+│   ├── ItemIndex.swift        les éléments rangés par jour
+│   └── Calendar+Planner.swift, Date+Formatting.swift
+│
+└── Siri/           Siri, Apple Intelligence et Raccourcis
+    ├── PlannerIntents.swift      actions à phrases fixes (« Ajoute une tâche dans Planner »)
+    ├── PlannerShortcuts.swift    les phrases
+    ├── AppleIntelligence.swift   schémas `.reminders` : Siri en langage naturel
+    ├── PlannerSpotlight.swift    index Spotlight (là où Siri cherche les tâches)
+    ├── PlannerDonations.swift    ce qu'on fait dans l'app, signalé à Siri
+    └── PlannerEntities.swift, PlannerIntentStore.swift
 
 PlannerTests/       tests unitaires (Swift Testing)
 ```
@@ -40,17 +59,17 @@ PlannerTests/       tests unitaires (Swift Testing)
 ## Règles de dépendance
 
 ```
-Features ──► DesignSystem ──► (rien)
-   │
-   └──────► Core ──► (rien)
-App ──► Features
+MainView ──► Screens ──► Design ──► (rien)
+                 │
+                 └─────► Models, Logic ──► (rien)
+App ──► MainView, Siri
 ```
 
-- **Core** ne connaît pas SwiftUI : on peut le tester avec de simples tests unitaires.
-- **DesignSystem** ne connaît pas les modèles : un composant reçoit du texte et
+- **Logic** ne connaît pas SwiftUI : on peut le tester avec de simples tests unitaires.
+- **Design** ne connaît pas les modèles : un composant reçoit du texte et
   des couleurs, jamais un `PlannerItem`. On peut donc le réutiliser partout.
-- **Features** assemble les deux. Une feature n'importe jamais une autre feature
-  (sauf `Features/Shared`).
+- **Screens** assemble les deux. Un écran n'importe jamais un autre écran ;
+  ce qui doit être partagé remonte dans `Design/Components` ou `Logic`.
 
 ## Comment les données circulent
 
@@ -64,6 +83,13 @@ App ──► Features
    tourner sans aucune vue à l'écran et hors du main actor. Ils passent par
    `PlannerIntentStore`, un `@ModelActor` avec son propre contexte, enregistré
    comme dépendance dans `Planner.init()`.
+6. **Apple Intelligence** passe par deux portes :
+   - les intents à *schéma* (`AppleIntelligence.swift`) : une tâche y est un
+     « rappel », un cours une « liste ». Siri les remplit à partir de phrases
+     libres. Elles sont `isAssistantOnly` (cachées dans Raccourcis) pour ne
+     pas doubler les intents classiques ;
+   - l'index Spotlight, que Siri consulte pour retrouver « ma tâche X ».
+     Réindexé au lancement, en arrière-plan, et après chaque écriture Siri.
 
 ## Contraintes à ne pas casser
 
@@ -75,6 +101,9 @@ App ──► Features
   raccourcis de l'utilisateur. Il ne change jamais pour un élément donné.
 - **Valeurs brutes des enums exposés à Siri** (`ItemKind`, `AppSection`) :
   on peut en ajouter, jamais renommer — les raccourcis déjà créés les rejouent.
+- **Schémas Apple Intelligence** : leur forme est imposée et vérifiée au
+  build. On ne renomme ni ne retire une propriété d'un type `@AppIntent(schema:)`
+  / `@AppEntity(schema:)`. `CourseListEntity.noCourseID` est un contrat comme `uuid`.
 - **Types purs en `nonisolated`** : l'app compile avec l'isolation main actor
   par défaut. Tout ce qu'un intent doit pouvoir appeler (`Calendar.planner`,
   `Theme`, les modèles, `MonthGrid`) est explicitement `nonisolated`.
@@ -83,12 +112,14 @@ App ──► Features
 
 | Je veux…                         | Où ?                                                     |
 |----------------------------------|----------------------------------------------------------|
-| changer une couleur de l'app     | `DesignSystem/Theme.swift`                               |
-| ajouter une couleur de cours     | `Core/Models/CourseColor.swift` + `CourseColor+Color.swift` |
-| ajouter une section              | `AppSection.swift` puis `SectionScreen` dans `RootView.swift` |
-| ajouter un champ à une tâche     | `PlannerItem.swift`, puis `ItemDraft.swift` et `ItemEditorView.swift` |
-| ajouter un modèle SwiftData      | le créer dans `Core/Models/` + l'ajouter à `PlannerStore.schema` |
-| ajouter une action Siri          | `Features/Intents/PlannerIntents.swift` + une phrase dans `PlannerShortcuts.swift` |
+| changer une couleur de l'app     | `Design/Theme.swift`                                     |
+| changer l'allure des cartes      | `plannerCard()` dans `Design/Theme.swift`                |
+| ajouter une couleur de cours     | `Models/CourseColor.swift` + `Design/CourseColor+Color.swift` |
+| ajouter une section              | `App/AppSection.swift` puis `SectionScreen` dans `MainView/RootView.swift` |
+| ajouter un champ à une tâche     | `Models/PlannerItem.swift`, puis `ItemDraft.swift` et `ItemEditorView.swift` |
+| ajouter un modèle SwiftData      | le créer dans `Models/` + l'ajouter à `PlannerStore.schema` |
+| ajouter une action Siri          | `Siri/PlannerIntents.swift` + une phrase dans `PlannerShortcuts.swift` |
+| ajouter un schéma Apple Intelligence | `Siri/AppleIntelligence.swift` ; dans Xcode, taper `reminders_` propose les modèles |
 
 ## Prochaines étapes prévues
 

@@ -6,8 +6,8 @@
 //  - la base de données SwiftData (PlannerStore)
 //  - les dépendances des App Intents (Siri, Raccourcis)
 //  - la vue racine (RootView)
-//  Aucune logique métier ici : si tu cherches comment une feature marche,
-//  va dans Features/<NomDeLaFeature>/.
+//  Aucune logique métier ici : si tu cherches comment un écran marche,
+//  va dans Screens/<NomDeLÉcran>/.
 //
 
 import AppIntents
@@ -38,6 +38,9 @@ struct Planner: App {
         #if os(macOS)
         // Taille d'ouverture confortable pour la vue mois sur Mac.
         .defaultSize(width: 1280, height: 820)
+        // La fenêtre reste librement redimensionnable, mais pas en dessous du
+        // minimum imposé par RootView.
+        .windowResizability(.contentMinSize)
         #endif
     }
 }

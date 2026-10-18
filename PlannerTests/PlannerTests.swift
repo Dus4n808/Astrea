@@ -44,6 +44,32 @@ struct ModelTests {
         #expect(course.color == .blue)
     }
 
+    @Test("Les couleurs déjà enregistrées gardent leur valeur brute")
+    func courseColorRawValuesAreStable() {
+        // Valeurs stockées dans les cours existants : les renommer les ferait
+        // tous retomber sur bleu.
+        let legacy = ["blue", "graphite", "orange", "violet", "red", "green", "teal", "pink"]
+        for raw in legacy { #expect(CourseColor(rawValue: raw) != nil, "\(raw)") }
+    }
+
+    @Test("L'ordre de proposition contient chaque couleur une seule fois")
+    func suggestionOrderCoversPalette() {
+        #expect(CourseColor.suggestionOrder.count == CourseColor.allCases.count)
+        #expect(Set(CourseColor.suggestionOrder) == Set(CourseColor.allCases))
+    }
+
+    @Test("Un nouveau cours reçoit une couleur encore libre")
+    func suggestedColorIsFree() {
+        #expect(CourseColor.suggested(avoiding: []) == .blue)
+        #expect(CourseColor.suggested(avoiding: [.blue]) == .orange)
+        // 20 cours sur 20 couleurs : toutes différentes.
+        var used: [CourseColor] = []
+        for _ in CourseColor.allCases { used.append(CourseColor.suggested(avoiding: used)) }
+        #expect(Set(used).count == CourseColor.allCases.count)
+        // Palette pleine : on repart sur la moins utilisée.
+        #expect(CourseColor.suggested(avoiding: used) == .blue)
+    }
+
     @Test("Chaque élément reçoit un identifiant stable distinct")
     func uuidsAreUnique() {
         // Cet identifiant est la clé que Siri enregistre dans les raccourcis.
