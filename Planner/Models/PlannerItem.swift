@@ -26,7 +26,8 @@ nonisolated final class PlannerItem {
     /// Jour (et heure si `isAllDay == false`) de l'élément.
     var date: Date = Date.now
 
-    /// true = « Fin de journée » / toute la journée, l'heure de `date` est ignorée.
+    /// true = pas d'heure : l'élément est prévu ce jour-là, l'heure de `date`
+    /// est ignorée. (Nom conservé : le champ est déjà dans le schéma CloudKit.)
     var isAllDay: Bool = true
 
     /// Dernier jour inclus, pour les éléments sur plusieurs jours (vacances).

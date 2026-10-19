@@ -23,6 +23,8 @@ struct ItemDraft {
     var kind: ItemKind = .task
     var title: String = ""
     var date: Date = .now
+    /// true = pas d'heure : l'élément est simplement prévu ce jour-là.
+    /// (Nom hérité du modèle, où il est synchronisé avec iCloud.)
     var isAllDay: Bool = true
     var endDate: Date = .now
     var course: Course?
@@ -54,11 +56,30 @@ struct ItemDraft {
         }
     }
 
-    /// Jour choisi + heure actuelle arrondie (utile si on décoche « Toute la journée »).
+    /// Jour choisi + heure actuelle arrondie (utile si on ajoute une heure).
     private static func defaultDate(for day: Date) -> Date {
         let calendar = Calendar.planner
         let hour = calendar.component(.hour, from: .now)
         return calendar.date(bySettingHour: min(hour + 1, 23), minute: 0, second: 0, of: day) ?? day
+    }
+
+    // MARK: - Heure (facultative)
+
+    /// Donne une heure à l'élément. S'il n'en avait jamais eu (minuit, cas
+    /// d'un élément créé par Siri), on propose l'heure pleine qui suit.
+    mutating func addTime(now: Date = .now) {
+        let calendar = Calendar.planner
+        let time = calendar.dateComponents([.hour, .minute], from: date)
+        if time.hour == 0 && time.minute == 0 {
+            let nextHour = min(calendar.component(.hour, from: now) + 1, 23)
+            date = MiniTimePicker.date(date, hour: nextHour, minute: 0, calendar: calendar)
+        }
+        isAllDay = false
+    }
+
+    /// Retire l'heure : l'élément redevient « ce jour-là ».
+    mutating func removeTime() {
+        isAllDay = true
     }
 
     // MARK: - Validation

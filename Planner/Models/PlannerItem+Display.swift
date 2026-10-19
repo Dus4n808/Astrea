@@ -9,6 +9,8 @@ import SwiftUI
 
 nonisolated extension PlannerItem {
     /// Couleur d'affichage : celle du cours, sinon une couleur par type.
+    /// Main actor : une tâche sans cours prend l'accent du thème actif.
+    @MainActor
     var displayColor: Color {
         if let course { return course.color.color }
         switch kind {
@@ -18,10 +20,10 @@ nonisolated extension PlannerItem {
         }
     }
 
-    /// Ligne secondaire : « méthodes mixtes · Fin de journée »
+    /// Ligne secondaire : « méthodes mixtes · 14:30 », ou juste
+    /// « méthodes mixtes » quand l'élément n'a pas d'heure.
     var subtitle: String {
-        let time = isAllDay ? "Fin de journée" : date.timeText
-        if let course { return "\(course.name) · \(time)" }
-        return "\(kind.title) · \(time)"
+        let label = course?.name ?? kind.title
+        return isAllDay ? label : "\(label) · \(date.timeText)"
     }
 }

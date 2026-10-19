@@ -55,7 +55,7 @@ struct PlannerShortcuts: AppShortcutsProvider {
                 "Ouvre \(\.$section) dans \(.applicationName)",
                 "Ouvre \(.applicationName)",
             ],
-            shortTitle: "Ouvrir le planner",
+            shortTitle: "Ouvrir Astrea",
             systemImageName: "calendar"
         )
     }

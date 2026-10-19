@@ -13,7 +13,6 @@ nonisolated enum AppSection: String, CaseIterable, Identifiable, Hashable {
     case calendar
     case agenda
     case courses
-    case years
     case settings
 
     var id: String { rawValue }
@@ -24,7 +23,6 @@ nonisolated enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .calendar: "Calendrier"
         case .agenda:   "Agenda"
         case .courses:  "Cours"
-        case .years:    "Années"
         case .settings: "Réglages"
         }
     }
@@ -35,18 +33,17 @@ nonisolated enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .calendar: "calendar"
         case .agenda:   "list.bullet"
         case .courses:  "book.closed"
-        case .years:    "square.grid.2x2"
         case .settings: "gearshape"
         }
     }
 
     /// Sections affichées dans la navigation principale.
     /// Réglages est à part : en bas de la sidebar sur Mac/iPad.
-    static let main: [AppSection] = [.calendar, .agenda, .courses, .years]
+    static let main: [AppSection] = [.calendar, .agenda, .courses]
 
-    /// Sur iPhone la tab bar est limitée : on garde l'essentiel.
+    /// Onglets iPhone : tout, Réglages compris (il n'y a pas d'autre accès).
     /// Le bouton « + » n'est pas une section, il est géré à part dans TabShell.
-    static let phoneTabs: [AppSection] = [.calendar, .agenda, .courses]
+    static let phoneTabs: [AppSection] = [.calendar, .agenda, .courses, .settings]
 }
 // MARK: - Siri et Raccourcis
 
@@ -60,7 +57,6 @@ extension AppSection: AppEnum {
             .calendar: "Calendrier",
             .agenda:   "Agenda",
             .courses:  "Cours",
-            .years:    "Années",
             .settings: "Réglages",
         ]
     }

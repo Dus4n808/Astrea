@@ -92,8 +92,7 @@ struct SectionScreen: View {
         case .calendar: CalendarScreen()
         case .agenda:   AgendaScreen()
         case .courses:  CoursesScreen()
-        case .years:    ComingSoonScreen(section: section)
-        case .settings: ComingSoonScreen(section: section)
+        case .settings: SettingsScreen()
         }
     }
 }

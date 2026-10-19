@@ -40,17 +40,17 @@ struct AgendaScreen: View {
 
                 WeekProgressCard(progress: weekProgress)
 
-                Picker("Filtre", selection: $filter) {
-                    ForEach(AgendaFilter.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+                ThemedSegmentedPicker(options: AgendaFilter.allCases, selection: $filter) { $0.title }
 
                 if groups.isEmpty {
-                    ContentUnavailableView(filter.emptyTitle, systemImage: "checkmark.circle",
-                                           description: Text(filter.emptyMessage))
+                    // Prend toute la largeur : la pile parente est alignée à
+                    // gauche, le message serait sinon collé au bord.
+                    EmptyStateView(title: filter.emptyTitle, message: filter.emptyMessage)
                 } else {
                     ForEach(groups) { group in
+                        if let title = group.separatorTitle {
+                            WeekSeparator(title: title)
+                        }
                         AgendaDayGroup(day: group.day, items: group.items)
                     }
                 }
@@ -60,6 +60,8 @@ struct AgendaScreen: View {
             .frame(maxWidth: 720) // lisible sur Mac/iPad : pas de lignes de 1500 pt
             .frame(maxWidth: .infinity)
         }
+        // Balayer une tâche pour la supprimer.
+        .swipeActionsContainer()
         .background(Theme.Colors.background)
         .navigationTitle("Agenda")
         .toolbar {
@@ -74,12 +76,26 @@ struct AgendaScreen: View {
     // MARK: - Données dérivées
 
     /// Éléments filtrés, regroupés par jour et triés.
+    ///
+    /// La carte de progression ne compte que la semaine en cours : un filet
+    /// marque donc l'endroit où la liste entre dans cette semaine (après des
+    /// tâches en retard) et celui où elle en sort (« Plus tard »).
     private var groups: [AgendaDay] {
         let calendar = Calendar.planner
         let weekStart = calendar.startOfWeek(for: .now)
+        let nextWeekStart = calendar.date(byAdding: .weekOfYear, value: 1, to: weekStart) ?? weekStart
         let visible = items.filter { filter.includes($0, from: weekStart) }
         let byDay = Dictionary(grouping: visible) { calendar.startOfDay(for: $0.date) }
-        return byDay.keys.sorted().map { AgendaDay(day: $0, items: byDay[$0] ?? []) }
+
+        var previous: AgendaPeriod?
+        return byDay.keys.sorted().map { day in
+            let period: AgendaPeriod = day < weekStart ? .past
+                : (day < nextWeekStart ? .thisWeek : .later)
+            // Pas de filet tout en haut : seulement au changement de période.
+            let title = (previous != nil && previous != period) ? period.separatorTitle : nil
+            previous = period
+            return AgendaDay(day: day, items: byDay[day] ?? [], separatorTitle: title)
+        }
     }
 
     /// Tâches de la semaine en cours : combien sont faites sur le total.
@@ -96,7 +112,40 @@ struct AgendaScreen: View {
 struct AgendaDay: Identifiable {
     let day: Date
     let items: [PlannerItem]
+    /// Filet à afficher juste avant ce jour (changement de semaine), ou nil.
+    var separatorTitle: String? = nil
     var id: Date { day }
+}
+
+/// Position d'un jour par rapport à la semaine en cours.
+private enum AgendaPeriod {
+    case past, thisWeek, later
+
+    var separatorTitle: String {
+        switch self {
+        case .past:     "En retard"
+        case .thisWeek: "Cette semaine"
+        case .later:    "Plus tard"
+        }
+    }
+}
+
+/// Filet discret avec un petit label, entre la semaine en cours et le reste.
+private struct WeekSeparator: View {
+    let title: String
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.s) {
+            Text(title)
+                .plannerLabelStyle()
+                .fixedSize()
+            Rectangle()
+                .fill(Theme.Colors.gridLine)
+                .frame(height: 1)
+        }
+        .padding(.top, Theme.Spacing.xs)
+        .accessibilityAddTraits(.isHeader)
+    }
 }
 
 // MARK: - Filtre
@@ -151,3 +200,4 @@ enum AgendaFilter: String, CaseIterable, Identifiable {
     .environment(AppState())
     .modelContainer(PlannerStore.preview)
 }
+

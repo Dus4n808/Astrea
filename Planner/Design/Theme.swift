@@ -17,21 +17,24 @@
 //    class/*         → CourseColor (voir CourseColor+Color.swift)
 //
 //  Plusieurs thèmes : les valeurs vivent dans une `ThemePalette` (une par
-//  thème, voir `ThemePalette.rose`). `Theme.Colors` lit la palette active,
-//  donc les vues n'ont jamais à savoir quel thème est choisi.
+//  thème, voir AppTheme.swift). `Theme.Colors` lit la palette du thème choisi
+//  (`ThemeStore`), donc les vues n'ont jamais à savoir quel thème est actif.
+//
+//  Changer de thème redessine l'app sans rien faire de plus : `ThemeStore`
+//  est @Observable, et lire `Theme.Colors.accent` dans un `body` suffit à
+//  ce que SwiftUI note la dépendance.
 //
 
 import SwiftUI
 
 nonisolated enum Theme {
 
-    /// Palette utilisée par toute l'app.
-    /// Pour l'instant fixe ; plus tard, elle viendra du choix de l'utilisateur.
-    static let palette: ThemePalette = .rose
-
     // MARK: - Couleurs
 
+    @MainActor
     enum Colors {
+        private static var palette: ThemePalette { ThemeStore.shared.theme.palette }
+
         static var background: Color   { palette.background }
         static var surface: Color      { palette.surface }
         static var tint: Color         { palette.tint }
@@ -41,6 +44,14 @@ nonisolated enum Theme {
         static var ink: Color          { palette.ink }
         static var inkSecondary: Color { palette.inkSecondary }
         static var gridLine: Color     { palette.gridLine }
+
+        // Couleurs communes à tous les thèmes.
+
+        /// Texte et marques posés sur la couleur d'un cours (pastilles,
+        /// cases cochées) : les couleurs de cours sont vives dans tous les thèmes.
+        static let onCourse = Color.white
+        /// Actions destructrices (Supprimer).
+        static let danger = Color(hex: 0xE5484D)
     }
 
     // MARK: - Typographie
@@ -107,21 +118,6 @@ nonisolated struct ThemePalette {
     let gridLine: Color
 }
 
-nonisolated extension ThemePalette {
-    /// Thème d'origine, identique aux variables Figma.
-    static let rose = ThemePalette(
-        background:   Color(hex: 0xFFF1F4),
-        surface:      Color(hex: 0xFFFFFF),
-        tint:         Color(hex: 0xFFDDE7),
-        accent:       Color(hex: 0xFF4F8B),
-        accentDeep:   Color(hex: 0xE0306E),
-        onAccent:     Color(hex: 0xFFFFFF),
-        ink:          Color(hex: 0x1C1216),
-        inkSecondary: Color(hex: 0x8A6D77),
-        gridLine:     Color(hex: 0xF3CAD6)
-    )
-}
-
 // MARK: - Helpers
 
 nonisolated extension Color {
@@ -137,12 +133,15 @@ nonisolated extension Color {
 
 extension View {
     /// Style des petits labels en capitales (« MES COURS », « LUN »).
-    func plannerLabelStyle(color: Color = Theme.Colors.inkSecondary) -> some View {
+    /// `color` vaut nil par défaut plutôt que `Theme.Colors.inkSecondary` :
+    /// la couleur dépend du thème actif (main actor), et une valeur par défaut
+    /// de paramètre est évaluée hors de tout acteur.
+    func plannerLabelStyle(color: Color? = nil) -> some View {
         self
             .font(Theme.Fonts.label)
             .tracking(Theme.Fonts.labelTracking)
             .textCase(.uppercase)
-            .foregroundStyle(color)
+            .foregroundStyle(color ?? Theme.Colors.inkSecondary)
     }
 
     /// La carte blanche de l'app : fond `surface`, coins arrondis et ombre rose

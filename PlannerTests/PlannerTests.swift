@@ -146,7 +146,6 @@ struct AppIntentsMetadataTests {
         #expect(AppSection.calendar.rawValue == "calendar")
         #expect(AppSection.agenda.rawValue == "agenda")
         #expect(AppSection.courses.rawValue == "courses")
-        #expect(AppSection.years.rawValue == "years")
         #expect(AppSection.settings.rawValue == "settings")
     }
 

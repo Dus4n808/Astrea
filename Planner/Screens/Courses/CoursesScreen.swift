@@ -36,8 +36,8 @@ struct CoursesScreen: View {
         .background(Theme.Colors.background)
         .overlay {
             if courses.isEmpty {
-                ContentUnavailableView("Aucun cours", systemImage: "book.closed",
-                                       description: Text("Ajoute tes cours pour colorer ton calendrier."))
+                EmptyStateView(title: "Aucun cours",
+                               message: "Ajoute tes cours pour colorer ton calendrier.")
             }
         }
         .navigationTitle("Cours")

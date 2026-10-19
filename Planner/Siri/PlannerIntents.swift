@@ -19,7 +19,7 @@ import Foundation
 struct AddTaskIntent: AppIntent {
     static let title: LocalizedStringResource = "Ajouter une tâche"
     static let description = IntentDescription(
-        "Crée une tâche dans le planner, avec une échéance et un cours facultatifs.",
+        "Crée une tâche dans Astrea, avec une échéance et un cours facultatifs.",
         categoryName: "Planner"
     )
 
@@ -33,7 +33,7 @@ struct AddTaskIntent: AppIntent {
     var course: CourseEntity?
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Ajouter \(\.$taskTitle) au planner") {
+        Summary("Ajouter \(\.$taskTitle) à Astrea") {
             \.$dueDate
             \.$course
         }
@@ -66,7 +66,7 @@ struct AddTaskIntent: AppIntent {
 struct SetTaskDoneIntent: AppIntent {
     static let title: LocalizedStringResource = "Marquer une tâche comme faite"
     static let description = IntentDescription(
-        "Coche ou décoche une tâche du planner.",
+        "Coche ou décoche une tâche d'Astrea.",
         categoryName: "Planner"
     )
 
@@ -99,7 +99,7 @@ struct SetTaskDoneIntent: AppIntent {
 struct UpcomingTasksIntent: AppIntent {
     static let title: LocalizedStringResource = "Tâches à venir"
     static let description = IntentDescription(
-        "Liste les tâches du planner encore à faire sur les prochains jours.",
+        "Liste les tâches d'Astrea encore à faire sur les prochains jours.",
         categoryName: "Planner"
     )
 
@@ -136,9 +136,9 @@ struct UpcomingTasksIntent: AppIntent {
 // MARK: - Ouvrir une section
 
 struct OpenPlannerIntent: AppIntent {
-    static let title: LocalizedStringResource = "Ouvrir le planner"
+    static let title: LocalizedStringResource = "Ouvrir Astrea"
     static let description = IntentDescription(
-        "Ouvre le planner sur le calendrier ou sur l'agenda.",
+        "Ouvre Astrea sur le calendrier ou sur l'agenda.",
         categoryName: "Planner"
     )
 
@@ -178,10 +178,10 @@ nonisolated enum PlannerIntentError: Error, CustomLocalizedStringResourceConvert
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .emptyTitle:            "Il faut un titre pour créer une tâche."
-        case .itemNotFound:          "Cette tâche n'existe plus dans le planner."
+        case .itemNotFound:          "Cette tâche n'existe plus dans Astrea."
         case .invalidRange:          "Cette période n'est pas valide."
-        case .recurrenceUnsupported: "Le planner ne gère pas encore les tâches qui se répètent."
-        case .locationUnsupported:   "Le planner ne gère pas les rappels liés à un lieu."
+        case .recurrenceUnsupported: "Astrea ne gère pas encore les tâches qui se répètent."
+        case .locationUnsupported:   "Astrea ne gère pas les rappels liés à un lieu."
         }
     }
 }

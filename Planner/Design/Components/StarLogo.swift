@@ -59,7 +59,7 @@ struct StarLogo: View {
             context.stroke(smile, with: .color(ink), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
         }
         .aspectRatio(1, contentMode: .fit)
-        .accessibilityLabel("Logo Planner")
+        .accessibilityLabel("Logo Astrea")
     }
 
     private func line(from a: (Double, Double), to b: (Double, Double)) -> Path {

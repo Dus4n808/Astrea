@@ -3,10 +3,12 @@
 //  Sur iPhone : la liste des éléments du jour sélectionné, sous la grille.
 //
 
+import SwiftData
 import SwiftUI
 
 struct DayAgendaList: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.modelContext) private var context
 
     let day: Date
     let items: [PlannerItem]
@@ -33,10 +35,15 @@ struct DayAgendaList: View {
                         subtitle: item.subtitle,
                         color: item.displayColor,
                         isDone: item.isDone,
+                        details: item.details,
                         onToggle: item.kind.isCheckable ? { toggle(item) } : nil
                     )
                     .contentShape(.rect)
                     .onTapGesture { appState.openEditor(for: item) }
+                    // Le ScrollView de CalendarScreen porte swipeActionsContainer().
+                    .deleteOnSwipe {
+                        withAnimation(.snappy) { context.delete(item) }
+                    }
                 }
             }
         }

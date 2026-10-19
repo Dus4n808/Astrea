@@ -18,17 +18,20 @@ struct EventPill: View {
         HStack(spacing: 5) {
             // Petit trait blanc à gauche (détail de la maquette).
             Capsule()
-                .fill(.white.opacity(0.85))
+                .fill(Theme.Colors.onCourse.opacity(0.85))
                 .frame(width: 3, height: 10)
 
             Text(title)
                 .font(Theme.Fonts.pill)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.Colors.onCourse)
                 .strikethrough(isDone)
                 .lineLimit(1)
         }
         .padding(.horizontal, 7)
-        .padding(.vertical, 3)
+        .padding(.vertical, 2)
+        // Hauteur fixe : CalendarLayout s'en sert pour savoir combien de
+        // pastilles tiennent dans une case.
+        .frame(height: CalendarLayout.pillHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(color, in: .rect(cornerRadius: Theme.Radius.pill))
         .opacity(isDone ? 0.55 : 1)

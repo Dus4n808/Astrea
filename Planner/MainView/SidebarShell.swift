@@ -32,47 +32,77 @@ struct SidebarShell: View {
 
     // MARK: - Sidebar
 
+    /// Pas de `List(selection:)` : sa surbrillance suit la couleur d'accent du
+    /// système (bleu par défaut sur Mac) et ignore `.tint`. Les lignes sont
+    /// donc dessinées ici, aux couleurs du thème.
     private var sidebar: some View {
-        List(selection: selection) {
+        List {
             BrandHeader()
                 .listRowSeparator(.hidden)
                 .padding(.bottom, Theme.Spacing.m)
 
             ForEach(AppSection.main) { section in
-                Label(section.title, systemImage: section.systemImage)
-                    .tag(section)
-                    .lineLimit(1)
+                sidebarRow(section)
             }
 
-            Section("Mes cours") {
+            Section {
                 ForEach(courses) { course in
                     CourseChip(name: course.name, color: course.color.color)
                         .lineLimit(1)
                 }
+            } header: {
+                Text("Mes cours")
+                    .plannerLabelStyle()
             }
         }
         // Réglages reste toujours visible en bas, même si la liste défile.
         .safeAreaInset(edge: .bottom) {
-            Button {
+            SidebarRow(section: .settings, isSelected: appState.section == .settings) {
                 appState.section = .settings
-            } label: {
-                Label(AppSection.settings.title, systemImage: AppSection.settings.systemImage)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
-            .padding()
+            .padding(Theme.Spacing.s)
         }
     }
 
-    /// `List(selection:)` attend un optionnel ; on convertit vers AppState.
-    private var selection: Binding<AppSection?> {
-        Binding(
-            get: { appState.section },
-            set: { newValue in
-                if let newValue { appState.section = newValue }
+    private func sidebarRow(_ section: AppSection) -> some View {
+        SidebarRow(section: section, isSelected: appState.section == section) {
+            appState.section = section
+        }
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 1, leading: Theme.Spacing.s, bottom: 1, trailing: Theme.Spacing.s))
+    }
+}
+
+/// Une ligne de navigation : icône + titre, fond teinté quand elle est active.
+private struct SidebarRow: View {
+    let section: AppSection
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            // Pas de `Label` : dans une sidebar macOS, son icône est recolorée
+            // avec l'accent du système (bleu), quel que soit le style donné.
+            HStack(spacing: Theme.Spacing.s) {
+                Image(systemName: section.systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(Theme.Colors.accent)
+                    .frame(width: 20)
+                Text(section.title)
+                    .foregroundStyle(isSelected ? Theme.Colors.accentDeep : Theme.Colors.ink)
             }
-        )
+                .font(.body.weight(isSelected ? .semibold : .regular))
+                .lineLimit(1)
+                .padding(.horizontal, Theme.Spacing.s)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(isSelected ? Theme.Colors.tint : .clear,
+                            in: .rect(cornerRadius: Theme.Radius.pill + 2))
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .animation(.snappy, value: isSelected)
     }
 }
 
@@ -83,8 +113,8 @@ private struct BrandHeader: View {
             StarLogo()
                 .frame(width: 40, height: 40)
             VStack(alignment: .leading, spacing: 0) {
-                // « planner » en encre + point rose, comme dans la maquette.
-                Text("planner\(Text(".").foregroundStyle(Theme.Colors.accent))")
+                // « astrea » en encre + point rose, comme dans la maquette.
+                Text("astrea\(Text(".").foregroundStyle(Theme.Colors.accent))")
                     .foregroundStyle(Theme.Colors.ink)
                     .font(Theme.Fonts.display(28))
                     .tracking(-1)

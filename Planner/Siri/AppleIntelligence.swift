@@ -276,8 +276,8 @@ struct DeleteTaskRemindersIntent: DeleteIntent {
         // Irréversible : on demande d'abord. Si la personne refuse, l'appel
         // lève une erreur qui interrompt perform() avant toute suppression.
         let dialog: IntentDialog = entities.count == 1
-            ? "Supprimer « \(entities[0].title) » du planner ?"
-            : "Supprimer ces \(entities.count) tâches du planner ?"
+            ? "Supprimer « \(entities[0].title) » d'Astrea ?"
+            : "Supprimer ces \(entities.count) tâches d'Astrea ?"
         try await requestConfirmation(dialog: dialog)
 
         let ids = entities.map(\.id)

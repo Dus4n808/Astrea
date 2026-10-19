@@ -110,6 +110,8 @@ struct CalendarScreen: View {
             .frame(maxWidth: 640)
             .frame(maxWidth: .infinity)
         }
+        // Balayer une tâche de la liste du jour pour la supprimer.
+        .swipeActionsContainer()
     }
 
     // MARK: - Barre d'outils
@@ -173,6 +175,16 @@ struct CalendarScreen: View {
 // (bascule en compact) et fenêtre basse (la grille défile).
 
 #Preview("Mac — fenêtre réduite", traits: .fixedLayout(width: 700, height: 760)) {
+    NavigationStack {
+        CalendarScreen()
+    }
+    .environment(AppState())
+    .modelContainer(PlannerStore.preview)
+}
+
+// Taille d'ouverture de la fenêtre Mac (voir Planner.swift) : cases larges
+// avec pastilles.
+#Preview("Mac — fenêtre d'ouverture", traits: .fixedLayout(width: 1280, height: 820)) {
     NavigationStack {
         CalendarScreen()
     }

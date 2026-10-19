@@ -89,8 +89,10 @@ struct CalendarLayout: Equatable {
         return max(Self.minimumWeekHeight, available / CGFloat(MonthGrid.weekCount))
     }
 
-    /// Hauteur d'une case en mode compact (grille fixe, liste du jour dessous).
-    let compactWeekHeight: CGFloat = 52
+    /// Hauteur d'une case en mode compact (grille fixe, liste du jour dessous) :
+    /// marges 4 + numéro 24 (rond de sélection compris) + 3 + trois barres
+    /// (3 × 4 + 2 × 3) + 4 = 53, arrondi à 56 pour respirer.
+    let compactWeekHeight: CGFloat = 56
 
     /// Fenêtre trop courte pour 6 semaines lisibles : on fait défiler.
     var scrollsVertically: Bool {
@@ -102,17 +104,36 @@ struct CalendarLayout: Equatable {
     /// quand la grille peut simplement remplir la place disponible.
     var gridHeight: CGFloat? { scrollsVertically ? minimumGridHeight : nil }
 
-    /// Taille du numéro du jour dans une case : elle suit la hauteur de la
-    /// case, sinon un « 18 » en 36 pt mange toute la place des pastilles.
+    /// Taille du gros numéro de la case du jour : elle suit la hauteur de la
+    /// case, sinon le « 19 » mange la place des pastilles et la case rose
+    /// déborde de sa ligne.
     var dayNumberSize: CGFloat {
-        isRegular ? min(36, max(20, weekHeight * 0.32)) : 15
+        isRegular ? min(26, max(17, weekHeight * 0.2)) : 15
     }
 
-    /// Combien de pastilles tiennent dans une case avant le « +N autres ».
-    var maxVisibleItems: Int {
+    /// Marge haute et basse d'une case.
+    var cellVerticalPadding: CGFloat { 6 }
+
+    /// Hauteur d'une pastille (voir EventPill) et écart entre deux.
+    static let pillHeight: CGFloat = 17
+    static let pillSpacing: CGFloat = 4
+
+    /// Combien de pastilles tiennent dans une case. Au-delà, un « +N » se
+    /// place à côté du numéro : il ne coûte pas de ligne en plus.
+    ///
+    /// La ligne du numéro est comptée à sa vraie hauteur (≈ 1,2 × la taille
+    /// de police) : la sous-estimer faisait déborder la case du jour.
+    ///
+    /// - Parameter cellHeight: hauteur mesurée de la case. `weekHeight` n'est
+    ///   qu'une estimation (l'en-tête est deviné) et coûtait souvent une
+    ///   pastille : la case passe sa vraie hauteur dès qu'elle la connaît.
+    func maxVisibleItems(cellHeight: CGFloat? = nil) -> Int {
         guard isRegular else { return 3 }
-        let free = weekHeight - dayNumberSize - Theme.Spacing.s * 2
-        return max(1, min(4, Int(free / 20)))
+        let height = cellHeight ?? weekHeight
+        let numberRow = dayNumberSize * 1.2
+        let free = height - cellVerticalPadding * 2 - numberRow - Self.pillSpacing
+        let fitting = Int((free + Self.pillSpacing) / (Self.pillHeight + Self.pillSpacing))
+        return max(1, min(4, fitting))
     }
 
     // MARK: - Détails

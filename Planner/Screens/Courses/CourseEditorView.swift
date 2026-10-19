@@ -200,7 +200,7 @@ private struct ColorPalettePicker: View {
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(.caption.weight(.heavy))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.Colors.onCourse)
                         }
                     }
                     // Anneau de la couleur autour de la pastille choisie.

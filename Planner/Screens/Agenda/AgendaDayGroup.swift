@@ -3,10 +3,12 @@
 //  Un bloc de l'agenda : gros numéro du jour à gauche, éléments à droite.
 //
 
+import SwiftData
 import SwiftUI
 
 struct AgendaDayGroup: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.modelContext) private var context
 
     let day: Date
     let items: [PlannerItem]
@@ -31,10 +33,15 @@ struct AgendaDayGroup: View {
                         subtitle: item.subtitle,
                         color: item.displayColor,
                         isDone: item.isDone,
+                        details: item.details,
                         onToggle: item.kind.isCheckable ? { toggle(item) } : nil
                     )
                     .contentShape(.rect)
                     .onTapGesture { appState.openEditor(for: item) }
+                    // Le ScrollView d'AgendaScreen porte swipeActionsContainer().
+                    .deleteOnSwipe {
+                        withAnimation(.snappy) { context.delete(item) }
+                    }
                 }
             }
         }

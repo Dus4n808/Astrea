@@ -60,7 +60,7 @@ struct CourseEntityQuery: EntityStringQuery {
 // MARK: - Élément du planner
 
 struct PlannerItemEntity: AppEntity {
-    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Élément du planner")
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Élément d'Astrea")
     static let defaultQuery = PlannerItemEntityQuery()
 
     let id: UUID

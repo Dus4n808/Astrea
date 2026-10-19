@@ -42,7 +42,7 @@ struct ItemEditorView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                    KindSelector(selection: $draft.kind)
+                    ThemedSegmentedPicker(options: ItemKind.allCases, selection: $draft.kind) { $0.title }
                     titleField
                     if draft.kind != .holiday { courseSection }
                     dateSection
@@ -92,7 +92,11 @@ struct ItemEditorView: View {
 
     private var titleField: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            TextField("Titre", text: $draft.title, axis: .vertical)
+            // `prompt` coloré : sans lui, le texte d'aide est quasi
+            // invisible sur le fond clair du Mac.
+            TextField("Titre", text: $draft.title,
+                      prompt: Text("Titre").foregroundStyle(Theme.Colors.inkSecondary.opacity(0.6)),
+                      axis: .vertical)
                 .font(Theme.Fonts.display(30))
                 .tracking(-0.8)
                 .foregroundStyle(Theme.Colors.ink)
@@ -137,29 +141,41 @@ struct ItemEditorView: View {
             VStack(spacing: 0) {
                 let dayLabel = draft.kind == .holiday ? "Du" : "Date"
                 EditorRow(dayLabel, showsSeparator: false) {
-                    DatePicker(dayLabel, selection: $draft.date, displayedComponents: .date)
+                    EditorDateField(dayLabel, selection: $draft.date)
                 }
 
                 if draft.kind == .holiday {
                     EditorRow("Au") {
-                        DatePicker("Au", selection: $draft.endDate,
-                                   in: draft.date..., displayedComponents: .date)
+                        EditorDateField("Au", selection: $draft.endDate, from: draft.date)
                     }
                 } else {
-                    let allDayLabel = draft.kind == .task ? "Fin de journée" : "Toute la journée"
-                    EditorRow(allDayLabel) {
-                        Toggle(allDayLabel, isOn: $draft.isAllDay)
-                            .toggleStyle(.switch)
-                    }
-                    if !draft.isAllDay {
-                        EditorRow("Heure") {
-                            DatePicker("Heure", selection: $draft.date,
-                                       displayedComponents: .hourAndMinute)
+                    // Heure facultative : sans heure, l'élément est simplement
+                    // prévu ce jour-là.
+                    EditorRow("Heure") {
+                        if draft.isAllDay {
+                            Button {
+                                draft.addTime()
+                            } label: {
+                                EditorCapsule(text: "Ajouter une heure", systemImage: "plus",
+                                              color: Theme.Colors.accentDeep)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            HStack(spacing: Theme.Spacing.s) {
+                                EditorTimeField(selection: $draft.date)
+                                Button("Retirer l'heure", systemImage: "xmark") {
+                                    draft.removeTime()
+                                }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.plain)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Theme.Colors.inkSecondary)
+                            }
                         }
                     }
                 }
             }
-            // Les contrôles système (bascule, sélecteur de date) prennent la
+            // Les contrôles système (sélecteur de date iOS) prennent la
             // couleur de l'app plutôt que le bleu par défaut.
             .tint(Theme.Colors.accent)
         }
@@ -167,7 +183,9 @@ struct ItemEditorView: View {
 
     private var detailsSection: some View {
         EditorCard("Détails") {
-            TextField("Pages à lire, consignes…", text: $draft.details, axis: .vertical)
+            TextField("Détails", text: $draft.details,
+                      prompt: Text("Pages à lire, consignes…").foregroundStyle(Theme.Colors.inkSecondary),
+                      axis: .vertical)
                 .lineLimit(3...8)
                 .textFieldStyle(.plain)
                 .font(.subheadline)
@@ -213,7 +231,7 @@ struct ItemEditorView: View {
         } label: {
             Label("Supprimer", systemImage: "trash")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.red)
+                .foregroundStyle(Theme.Colors.danger)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .plannerCard()
@@ -250,36 +268,6 @@ struct ItemEditorView: View {
 }
 
 // MARK: - Briques de la feuille
-
-/// Choix du type, à la place du `Picker` segmenté du système : celui-ci est
-/// gris et ignore complètement le thème de l'app.
-private struct KindSelector: View {
-    @Binding var selection: ItemKind
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.s) {
-            ForEach(ItemKind.allCases) { kind in
-                let isSelected = kind == selection
-                Button {
-                    selection = kind
-                } label: {
-                    Text(kind.title)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .foregroundStyle(isSelected ? .white : Theme.Colors.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(isSelected ? Theme.Colors.accent : Theme.Colors.surface,
-                                    in: .capsule)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-            }
-        }
-        .animation(.snappy, value: selection)
-    }
-}
 
 /// Label en petites capitales + contenu dans une carte blanche.
 /// C'est le bloc de base de la feuille ; il reprend la carte des lignes
@@ -342,6 +330,88 @@ private struct EditorRow<Content: View>: View {
                 content.labelsHidden()
             }
         }
+    }
+}
+
+/// Choix d'un jour : capsule « 📅 lundi 19 octobre » qui ouvre le
+/// MiniMonthPicker (aux couleurs du thème) dans un popover, sur Mac comme
+/// sur iPhone.
+private struct EditorDateField: View {
+    let label: String
+    @Binding var selection: Date
+    let minimum: Date?
+
+    init(_ label: String, selection: Binding<Date>, from minimum: Date? = nil) {
+        self.label = label
+        self._selection = selection
+        self.minimum = minimum
+    }
+
+    @State private var isPresented = false
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            // Sans l'année : on planifie un semestre, elle n'apporte rien.
+            EditorCapsule(text: selection.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(.planner)),
+                          systemImage: "calendar")
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityValue(selection.formatted(date: .long, time: .omitted))
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            // Calendrier maison sur toutes les plateformes : le DatePicker du
+            // système garde sa propre couleur (bleu sur Mac, accent système
+            // sur iOS). Choisir un jour referme le popover, comme un menu.
+            MiniMonthPicker(selection: $selection, minimum: minimum) {
+                isPresented = false
+            }
+            .presentationBackground(Theme.Colors.surface)
+            // Sur iPhone, un popover devient sinon une feuille plein écran.
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+/// Choix d'une heure : capsule « 🕑 14:30 » qui ouvre le MiniTimePicker.
+/// Même rendu sur Mac et iPhone (popover, y compris sur écran compact).
+private struct EditorTimeField: View {
+    @Binding var selection: Date
+    @State private var isPresented = false
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            EditorCapsule(text: selection.timeText, systemImage: "clock")
+                .monospacedDigit()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Heure")
+        .accessibilityValue(selection.timeText)
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            MiniTimePicker(selection: $selection)
+                .presentationBackground(Theme.Colors.surface)
+                // Sur iPhone, un popover devient sinon une feuille plein écran.
+                .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+/// Capsule teintée des champs de la carte « Quand » (date, heure, ajout).
+private struct EditorCapsule: View {
+    let text: String
+    let systemImage: String
+    var color: Color? = nil
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(color ?? Theme.Colors.ink)
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, 6)
+            .background(Theme.Colors.tint, in: .capsule)
     }
 }
 

@@ -45,7 +45,7 @@ struct SelectableCourseChip: View {
                     .font(.subheadline.weight(isSelected ? .semibold : .medium))
                     .lineLimit(1)
             }
-            .foregroundStyle(isSelected ? .white : Theme.Colors.ink)
+            .foregroundStyle(isSelected ? Theme.Colors.onCourse : Theme.Colors.ink)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(isSelected ? color : Theme.Colors.background, in: .capsule)
