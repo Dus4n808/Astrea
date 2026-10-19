@@ -3,7 +3,7 @@
 //  Premier écran, affiché tant que l'utilisateur n'a pas donné son prénom.
 //
 //  Le but est que ce soit accueillant et un peu joueur :
-//  - l'étoile flotte et se balance, entourée d'étincelles qui scintillent ;
+//  - l'étoile 3D rebondit et flotte, entourée d'étincelles qui scintillent ;
 //  - le titre répond pendant la saisie (« Salut, Léa ! ») ;
 //  - valider fait faire une pirouette à l'étoile avant d'entrer dans l'app.
 //
@@ -25,7 +25,7 @@ struct OnboardingScreen: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.l) {
             FloatingStar(isCelebrating: isCelebrating)
-                .frame(width: 130, height: 130)
+                .frame(width: 260, height: 260)
                 .accessibilityHidden(true)
 
             VStack(spacing: Theme.Spacing.s) {
@@ -171,12 +171,12 @@ private struct FloatingStar: View {
                         .position(x: proxy.size.width * sparkle.x, y: proxy.size.height * sparkle.y)
                 }
 
-                StarLogo()
-                    .frame(width: proxy.size.width * 0.66)
+                // L'étoile 3D rebondit d'elle-même : on ajoute juste un léger
+                // flottement pour qu'elle reste vivante entre deux rebonds.
+                AnimatedStar3D()
+                    .frame(width: proxy.size.width * 0.8, height: proxy.size.height * 0.8)
                     .phaseAnimator([false, true]) { star, isUp in
-                        star
-                            .offset(y: isUp ? -8 : 4)
-                            .rotationEffect(.degrees(isUp ? 6 : -8))
+                        star.offset(y: isUp ? -8 : 4)
                     } animation: { _ in
                         .easeInOut(duration: 1.6)
                     }

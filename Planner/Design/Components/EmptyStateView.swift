@@ -11,13 +11,22 @@ import SwiftUI
 struct EmptyStateView: View {
     let title: String
     let message: String
+    /// Remplace l'étoile fixe par l'étoile 3D animée (semaine bouclée).
+    var celebrates = false
 
     var body: some View {
         VStack(spacing: Theme.Spacing.s) {
-            StarLogo()
-                .frame(width: 64, height: 64)
-                .rotationEffect(.degrees(-8))
-                .accessibilityHidden(true)
+            if celebrates {
+                AnimatedStar3D(repeats: false)
+                    // ~65 pt d'étoile visible, comme l'étoile fixe : le reste
+                    // du cadre sert de marge au rebond.
+                    .frame(width: 110, height: 110)
+            } else {
+                StarLogo()
+                    .frame(width: 64, height: 64)
+                    .rotationEffect(.degrees(-8))
+                    .accessibilityHidden(true)
+            }
             Text(title)
                 .font(Theme.Fonts.display(22))
                 .tracking(-0.5)
@@ -34,6 +43,6 @@ struct EmptyStateView: View {
 }
 
 #Preview {
-    EmptyStateView(title: "Tout est fait !", message: "Aucune tâche en attente. Profite.")
+    EmptyStateView(title: "Tout est fait !", message: "Aucune tâche en attente. Profite.", celebrates: true)
         .background(Theme.Colors.background)
 }

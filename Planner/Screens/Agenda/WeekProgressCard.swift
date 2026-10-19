@@ -14,6 +14,9 @@ struct WeekProgress {
     /// 0…1, protégé contre la division par zéro.
     var fraction: Double { total == 0 ? 0 : Double(done) / Double(total) }
 
+    /// Toutes les tâches de la semaine sont cochées (une semaine vide ne compte pas).
+    var isComplete: Bool { total > 0 && done == total }
+
     /// Petit message qui change selon l'avancement.
     var message: String {
         switch fraction {

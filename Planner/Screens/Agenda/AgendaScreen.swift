@@ -45,7 +45,9 @@ struct AgendaScreen: View {
                 if groups.isEmpty {
                     // Prend toute la largeur : la pile parente est alignée à
                     // gauche, le message serait sinon collé au bord.
-                    EmptyStateView(title: filter.emptyTitle, message: filter.emptyMessage)
+                    // Semaine bouclée : l'étoile 3D fête ça à la place de l'étoile fixe.
+                    EmptyStateView(title: filter.emptyTitle, message: filter.emptyMessage,
+                                   celebrates: filter == .todo && weekProgress.isComplete)
                 } else {
                     ForEach(groups) { group in
                         if let title = group.separatorTitle {
