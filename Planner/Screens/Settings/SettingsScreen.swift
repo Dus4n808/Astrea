@@ -91,23 +91,27 @@ struct SettingsScreen: View {
     // MARK: - iCloud
 
     private var syncSection: some View {
-        EditorCard("Synchronisation") {
+        let state = ICloudStatus.shared.state
+        return EditorCard("Synchronisation") {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(PlannerStore.isSyncing ? "iCloud activé" : "Sur cet appareil uniquement")
+                    Text(state.title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.Colors.ink)
-                    Text(PlannerStore.isSyncing
-                         ? "Tes cours et tâches suivent ton compte iCloud sur tous tes appareils."
-                         : "iCloud n'est pas disponible : vérifie que tu es connecté à iCloud.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.Colors.inkSecondary)
+                    if state != .checking {
+                        Text(state.message)
+                            .font(.caption)
+                            .foregroundStyle(Theme.Colors.inkSecondary)
+                    }
                 }
             } icon: {
-                Image(systemName: PlannerStore.isSyncing ? "checkmark.icloud" : "icloud.slash")
+                Image(systemName: state.symbolName)
                     .foregroundStyle(Theme.Colors.accent)
             }
         }
+        // Vérifié à l'ouverture des réglages, puis à chaque changement de
+        // compte tant que l'écran reste affiché.
+        .task { await ICloudStatus.shared.monitor() }
     }
 }
 
