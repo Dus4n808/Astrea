@@ -44,4 +44,13 @@ final class AppState {
     func openEditor(for item: PlannerItem) {
         editorRequest = EditorRequest(mode: .edit(item))
     }
+
+    /// Fiche de consultation ouverte (nil = aucune). Voir ItemDetailView.
+    var detailItem: PlannerItem?
+
+    /// Ouvre la fiche d'un élément existant (tap sur une tâche).
+    /// La modification se fait ensuite via le bouton « Modifier » de la fiche.
+    func openDetail(for item: PlannerItem) {
+        detailItem = item
+    }
 }

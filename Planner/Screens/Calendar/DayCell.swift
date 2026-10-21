@@ -194,7 +194,7 @@ struct DayCell: View {
     @ViewBuilder
     private func pill(for item: PlannerItem) -> some View {
         let button = Button {
-            appState.openEditor(for: item)
+            appState.openDetail(for: item)
         } label: {
             EventPill(title: item.title, color: item.displayColor, isDone: item.isDone)
         }

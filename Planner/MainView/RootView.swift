@@ -45,6 +45,14 @@ struct RootView: View {
             .sheet(item: $appState.editorRequest) { request in
                 ItemEditorView(request: request)
             }
+            // Tap sur un élément existant : on consulte d'abord. Carte sur
+            // un voile plutôt qu'une feuille, pour fermer en touchant à côté.
+            .overlay {
+                if let item = appState.detailItem {
+                    ItemDetailOverlay(item: item) { appState.detailItem = nil }
+                }
+            }
+            .animation(.snappy(duration: 0.25), value: appState.detailItem?.id)
             // Siri cherche les tâches dans l'index Spotlight : on le remet à
             // jour au lancement et en quittant l'app, pour rattraper tout ce
             // qui a été modifié dans l'interface (voir PlannerSpotlight).

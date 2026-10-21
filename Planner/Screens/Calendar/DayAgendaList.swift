@@ -39,7 +39,7 @@ struct DayAgendaList: View {
                         onToggle: item.kind.isCheckable ? { toggle(item) } : nil
                     )
                     .contentShape(.rect)
-                    .onTapGesture { appState.openEditor(for: item) }
+                    .onTapGesture { appState.openDetail(for: item) }
                     // Le ScrollView de CalendarScreen porte swipeActionsContainer().
                     .deleteOnSwipe {
                         withAnimation(.snappy) { context.delete(item) }
