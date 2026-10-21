@@ -3,15 +3,16 @@
 > Une app de planning de cours faite avec amour, pour une seule utilisatrice :
 > ma copine.
 
+*🇬🇧 [English below](#-english)*
+
 ## L'histoire
 
-Ma copine jonglait entre ses cours, ses devoirs, ses examens et ses vacances.
-Il y avait des post-its partout et des captures d'écran d'emploi du temps
-perdues dans la pellicule. Elle me répétait souvent « attends, c'est pour quand
-déjà ? ».
+Ma copine organisait ses cours, ses devoirs et ses examens avec une app de
+planning… qui ne marchait pas vraiment. Entre les bugs et la synchro
+capricieuse, l'outil donnait plus de travail qu'il n'en faisait gagner.
 
-Moi, je suis développeur. Alors au lieu de lui offrir un agenda papier
-à 12 €, j'ai passé beaucoup trop de soirées à lui coder une app.
+Moi, je suis développeur. Alors au lieu de chercher une autre app, j'ai passé
+beaucoup trop de soirées à lui en coder une.
 Elle est sur iPhone, iPad et Mac, synchronisée via iCloud, et on peut lui
 parler avec Siri. C'est tout à fait proportionné.
 
@@ -64,11 +65,82 @@ L'app cible iOS 27 et macOS 27.
 
 ## La suite
 
-- Les pondérations des notes par cours
-- Le regroupement par années et semestres
-- Un mode sombre, pour réviser à 2 h du matin sans se brûler les yeux
+Pour l'instant, Astrea n'est disponible qu'en TestFlight. La prochaine étape,
+c'est une sortie sur l'App Store.
 
 ---
 
-Fait avec ❤️, du café et un assistant IA, pour la personne la plus organisée
-que je connaisse (maintenant).
+Fait avec ❤️, du café et un assistant IA, pour qu'elle ait enfin une app
+qui fonctionne.
+
+---
+
+## 🇬🇧 English
+
+> A class planner app made with love, for a single user: my girlfriend.
+
+### The story
+
+My girlfriend was organizing her classes, homework and exams with a planner
+app… that didn't really work. Between the bugs and the flaky sync, it made
+more work than it saved.
+
+I'm a developer. So instead of looking for another app, I spent way too many
+evenings coding her one. It runs on iPhone, iPad and Mac, syncs through
+iCloud, and you can talk to it with Siri. Perfectly proportionate.
+
+So Astrea is:
+
+- 📅 **a monthly calendar**, with little colored dots for each class;
+- 📝 **a day-by-day agenda**, with a "This week" card that cheers her on
+  ("C'est parti !", "Presque au bout !") and a 3D star that spins when the
+  week is done ✨;
+- 🎨 **classes**, each with its own color;
+- ✅ **tasks** to check off, **events**, and **holidays**
+  (the most important item type);
+- ☁️ **iCloud sync**: add it on the Mac, find it on the iPhone;
+- 🗣️ **Siri and Apple Intelligence**: "Hey Siri, what do I have to do in
+  Astrea?". It answers, even if the answer isn't always welcome.
+
+### Built with a lot (a lot) of AI 🤖
+
+I won't lie: this project was built in pair with AI, mainly with
+[Claude Code](https://claude.com/claude-code). The architecture, the SwiftUI,
+the CloudKit schema headaches, the Siri intents, the tests: AI wrote a good
+chunk of the code. I made the calls, reviewed, tested and broke things.
+
+It was also a great way to learn SwiftUI, SwiftData and App Intents without
+spending six months on it. And to ship before she finished her semester.
+
+### Under the hood
+
+| What | With |
+|---|---|
+| UI | SwiftUI, a single codebase for iPhone, iPad and Mac |
+| Data | SwiftData |
+| Sync | CloudKit (with a local fallback when iCloud acts up) |
+| Siri | App Intents, App Shortcuts, Apple Intelligence schemas, Spotlight |
+| Tests | Swift Testing |
+| Design | Figma mockups → tokens in `Design/Theme.swift` |
+
+Details on how the code is organized are in
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+### Running the project
+
+1. Open `Planner.xcodeproj` in Xcode.
+2. Change the signing team and bundle ID (otherwise they're mine 😉),
+   as well as the iCloud container in `Planner.entitlements`.
+3. ⌘R.
+
+The app targets iOS 27 and macOS 27.
+
+### What's next
+
+For now, Astrea is only available on TestFlight. The next step is an
+App Store release.
+
+---
+
+Made with ❤️, coffee and an AI assistant, so she finally has an app that
+works.
