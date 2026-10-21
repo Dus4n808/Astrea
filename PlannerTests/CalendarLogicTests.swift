@@ -58,16 +58,14 @@ struct PlannerCalendarTests {
 @Suite("MonthGrid")
 struct MonthGridTests {
 
-    @Test("Toujours 42 cases, soit 6 semaines de 7 jours")
-    func alwaysSixWeeks() {
+    @Test("Toujours 42 cases, soit 6 semaines de 7 jours", arguments: 1...12)
+    func alwaysSixWeeks(month: Int) {
         // La hauteur constante de la grille en dépend : si un mois produisait
         // 35 cases, l'interface sauterait d'un mois à l'autre.
-        for month in 1...12 {
-            let grid = MonthGrid(month: day(2026, month, 1))
-            #expect(grid.days.count == 42, "mois \(month)")
-            #expect(grid.weeks.count == 6, "mois \(month)")
-            #expect(grid.weeks.allSatisfy { $0.count == 7 }, "mois \(month)")
-        }
+        let grid = MonthGrid(month: day(2026, month, 1))
+        #expect(grid.days.count == 42)
+        #expect(grid.weeks.count == 6)
+        #expect(grid.weeks.allSatisfy { $0.count == 7 })
     }
 
     @Test("La grille démarre au lundi de la semaine du 1er")
@@ -203,9 +201,9 @@ struct CalendarStateTests {
     }
 
     @Test("isSelected ignore l'heure")
-    func isSelectedIgnoresTime() {
+    func isSelectedIgnoresTime() throws {
         let state = CalendarState(today: day(2026, 10, 17))
-        let sameDayLater = Calendar.planner.date(byAdding: .hour, value: 18, to: day(2026, 10, 17))!
+        let sameDayLater = try #require(Calendar.planner.date(byAdding: .hour, value: 18, to: day(2026, 10, 17)))
 
         #expect(state.isSelected(sameDayLater))
         #expect(!state.isSelected(day(2026, 10, 18)))

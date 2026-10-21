@@ -34,6 +34,11 @@ struct ItemDraft {
     /// L'élément d'origine si on modifie, nil si on crée.
     private(set) var original: PlannerItem?
 
+    /// Identifiant stable de l'élément d'origine, relevé à l'ouverture :
+    /// l'éditeur s'en sert pour remarquer que l'élément a été supprimé
+    /// ailleurs (autre appareil via iCloud, Siri) pendant la modification.
+    private(set) var originalID: UUID?
+
     // MARK: - Création du brouillon
 
     init(request: EditorRequest) {
@@ -45,6 +50,7 @@ struct ItemDraft {
 
         case let .edit(item):
             original = item
+            originalID = item.uuid
             kind = item.kind
             title = item.title
             date = item.date
@@ -68,13 +74,19 @@ struct ItemDraft {
     /// Donne une heure à l'élément. S'il n'en avait jamais eu (minuit, cas
     /// d'un élément créé par Siri), on propose l'heure pleine qui suit.
     mutating func addTime(now: Date = .now) {
+        date = Self.dateWithTime(date, now: now)
+        isAllDay = false
+    }
+
+    /// La date que prend un élément quand on lui ajoute une heure (voir `addTime`).
+    /// À part, pour que la carte « Quand » de l'éditeur puisse l'appliquer
+    /// avec ses seuls bindings, sans tout le brouillon.
+    static func dateWithTime(_ date: Date, now: Date = .now) -> Date {
         let calendar = Calendar.planner
         let time = calendar.dateComponents([.hour, .minute], from: date)
-        if time.hour == 0 && time.minute == 0 {
-            let nextHour = min(calendar.component(.hour, from: now) + 1, 23)
-            date = MiniTimePicker.date(date, hour: nextHour, minute: 0, calendar: calendar)
-        }
-        isAllDay = false
+        guard time.hour == 0 && time.minute == 0 else { return date }
+        let nextHour = min(calendar.component(.hour, from: now) + 1, 23)
+        return MiniTimePicker.date(date, hour: nextHour, minute: 0, calendar: calendar)
     }
 
     /// Retire l'heure : l'élément redevient « ce jour-là ».
@@ -94,6 +106,9 @@ struct ItemDraft {
 
     /// Applique le brouillon : crée un nouvel élément ou met à jour l'existant.
     func save(in context: ModelContext) {
+        // L'élément a été supprimé ailleurs pendant la modification : on
+        // n'écrit pas dans un objet qui n'existe plus.
+        guard !originalIsGone else { return }
         let item = original ?? PlannerItem(title: trimmedTitle, date: date)
         if original == nil { context.insert(item) }
 
@@ -124,7 +139,13 @@ struct ItemDraft {
 
     /// Supprime l'élément d'origine (mode édition uniquement).
     func delete(in context: ModelContext) {
-        guard let original else { return }
+        guard let original, !originalIsGone else { return }
         context.delete(original)
+    }
+
+    /// L'élément modifié n'est plus en base (supprimé entre-temps).
+    var originalIsGone: Bool {
+        guard let original else { return false }
+        return original.isDeleted || original.modelContext == nil
     }
 }

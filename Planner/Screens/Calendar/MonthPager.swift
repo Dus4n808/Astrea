@@ -33,19 +33,8 @@ struct MonthPager: View {
         }
         .scrollTargetBehavior(.paging)
         .scrollIndicators(.hidden)
-        .scrollPosition(id: visibleMonth)
+        .scrollPosition(id: Bindable(state).scrolledMonth)
         // Toutes les grilles font 6 semaines : la hauteur ne saute pas d'un
         // mois à l'autre, donc rien à figer ici.
-    }
-
-    /// `scrollPosition` travaille avec un optionnel ; on ignore le nil,
-    /// qui n'arrive qu'au tout premier affichage.
-    private var visibleMonth: Binding<Date?> {
-        Binding(
-            get: { state.displayedMonth },
-            set: { newValue in
-                if let newValue { state.displayedMonth = newValue }
-            }
-        )
     }
 }

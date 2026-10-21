@@ -78,7 +78,14 @@ struct DayCell: View {
             #if os(macOS)
             .dropDestination(for: ItemDragPayload.self) { payloads, _ in
                 moveDroppedItems(payloads)
-            } isTargeted: { isDropTargeted = $0 }
+            }
+            // Cadre de dépôt : allumé tant que la pastille survole la case.
+            .onDropSessionUpdated { session in
+                switch session.phase {
+                case .entering, .active: isDropTargeted = true
+                default:                 isDropTargeted = false
+                }
+            }
             #endif
             .accessibilityElement(children: .contain)
             .accessibilityLabel(accessibilityText)
@@ -283,17 +290,17 @@ struct DayCell: View {
 
     /// Déplace sur ce jour les éléments déposés. L'élément vient d'une autre
     /// case : on le retrouve en base par son identifiant stable.
-    private func moveDroppedItems(_ payloads: [ItemDragPayload]) -> Bool {
+    private func moveDroppedItems(_ payloads: [ItemDragPayload]) {
+        isDropTargeted = false
         let ids = payloads.map(\.id)
         let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { ids.contains($0.uuid) })
-        guard let dropped = try? context.fetch(descriptor), !dropped.isEmpty else { return false }
+        guard let dropped = try? context.fetch(descriptor), !dropped.isEmpty else { return }
 
         withAnimation(.snappy) {
             for item in dropped where item.kind != .holiday {
                 item.move(to: day.date)
             }
         }
-        return true
     }
 }
 

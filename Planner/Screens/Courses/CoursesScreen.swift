@@ -19,14 +19,7 @@ struct CoursesScreen: View {
                 Button {
                     editing = .existing(course)
                 } label: {
-                    HStack {
-                        CourseChip(name: course.name, color: course.color.color)
-                        Spacer()
-                        Text(pendingCountText(for: course))
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(Theme.Colors.inkSecondary)
-                    }
-                    .contentShape(.rect)
+                    CourseRow(course: course)
                 }
                 .buttonStyle(.plain)
             }
@@ -51,14 +44,33 @@ struct CoursesScreen: View {
         }
     }
 
-    /// « 3 à faire » (tâches non terminées de ce cours).
-    private func pendingCountText(for course: Course) -> String {
-        let pending = course.allItems.filter { $0.kind == .task && !$0.isDone }.count
-        return pending == 0 ? "" : "\(pending) à faire"
-    }
-
     private func delete(at offsets: IndexSet) {
         for index in offsets { context.delete(courses[index]) }
+    }
+}
+
+/// Une ligne de la liste : le cours et ses tâches restantes.
+///
+/// Vue à part : le compteur parcourt les éléments du cours. Cocher une
+/// tâche ne recalcule ainsi que la ligne de son cours, pas toute la liste.
+private struct CourseRow: View {
+    let course: Course
+
+    var body: some View {
+        HStack {
+            CourseChip(name: course.name, color: course.color.color)
+            Spacer()
+            Text(pendingCountText)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Theme.Colors.inkSecondary)
+        }
+        .contentShape(.rect)
+    }
+
+    /// « 3 à faire » (tâches non terminées de ce cours).
+    private var pendingCountText: String {
+        let pending = course.allItems.filter { $0.kind == .task && !$0.isDone }.count
+        return pending == 0 ? "" : "\(pending) à faire"
     }
 }
 

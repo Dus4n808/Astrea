@@ -48,8 +48,8 @@ struct TaskDueDateTests {
     }
 
     @Test("Aller-retour : une tâche « fin de journée » ne renvoie pas d'heure à Siri")
-    func roundTripOmitsHourWhenAllDay() {
-        let date = Calendar.planner.date(from: DateComponents(year: 2026, month: 10, day: 23, hour: 9))!
+    func roundTripOmitsHourWhenAllDay() throws {
+        let date = try #require(Calendar.planner.date(from: DateComponents(year: 2026, month: 10, day: 23, hour: 9)))
         #expect(TaskDueDate.components(of: date, isAllDay: true).hour == nil)
         #expect(TaskDueDate.components(of: date, isAllDay: false).hour == 9)
     }

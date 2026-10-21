@@ -19,13 +19,11 @@ import Testing
 @Suite("Modèle")
 struct ModelTests {
 
-    @Test("kind est bien relu depuis sa valeur stockée")
-    func kindRoundTrip() {
-        for kind in ItemKind.allCases {
-            let item = PlannerItem(title: "x", kind: kind, date: .now)
-            #expect(item.kind == kind)
-            #expect(item.kindRaw == kind.rawValue)
-        }
+    @Test("kind est bien relu depuis sa valeur stockée", arguments: ItemKind.allCases)
+    func kindRoundTrip(kind: ItemKind) {
+        let item = PlannerItem(title: "x", kind: kind, date: .now)
+        #expect(item.kind == kind)
+        #expect(item.kindRaw == kind.rawValue)
     }
 
     @Test("Une valeur de type inconnue retombe sur « tâche »")
@@ -44,12 +42,12 @@ struct ModelTests {
         #expect(course.color == .blue)
     }
 
-    @Test("Les couleurs déjà enregistrées gardent leur valeur brute")
-    func courseColorRawValuesAreStable() {
-        // Valeurs stockées dans les cours existants : les renommer les ferait
-        // tous retomber sur bleu.
-        let legacy = ["blue", "graphite", "orange", "violet", "red", "green", "teal", "pink"]
-        for raw in legacy { #expect(CourseColor(rawValue: raw) != nil, "\(raw)") }
+    // Valeurs stockées dans les cours existants : les renommer les ferait
+    // tous retomber sur bleu.
+    @Test("Les couleurs déjà enregistrées gardent leur valeur brute",
+          arguments: ["blue", "graphite", "orange", "violet", "red", "green", "teal", "pink"])
+    func courseColorRawValuesAreStable(raw: String) {
+        #expect(CourseColor(rawValue: raw) != nil)
     }
 
     @Test("L'ordre de proposition contient chaque couleur une seule fois")
@@ -120,19 +118,15 @@ struct CloudKitSchemaTests {
 @Suite("Métadonnées App Intents")
 struct AppIntentsMetadataTests {
 
-    @Test("Chaque type d'élément a un libellé pour Siri")
-    func itemKindHasEveryCase() {
+    @Test("Chaque type d'élément a un libellé pour Siri", arguments: ItemKind.allCases)
+    func itemKindHasEveryCase(kind: ItemKind) {
         // Un cas manquant ici est un fatalError au moment où Siri l'affiche.
-        for kind in ItemKind.allCases {
-            #expect(ItemKind.caseDisplayRepresentations[kind] != nil, "\(kind)")
-        }
+        #expect(ItemKind.caseDisplayRepresentations[kind] != nil)
     }
 
-    @Test("Chaque section a un libellé pour Siri")
-    func appSectionHasEveryCase() {
-        for section in AppSection.allCases {
-            #expect(AppSection.caseDisplayRepresentations[section] != nil, "\(section)")
-        }
+    @Test("Chaque section a un libellé pour Siri", arguments: AppSection.allCases)
+    func appSectionHasEveryCase(section: AppSection) {
+        #expect(AppSection.caseDisplayRepresentations[section] != nil)
     }
 
     @Test("Les valeurs brutes exposées à Siri n'ont pas changé")

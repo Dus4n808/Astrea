@@ -40,6 +40,14 @@ final class CalendarState {
         }
     }
 
+    /// `displayedMonth` vu par le défilement horizontal (`scrollPosition`),
+    /// qui travaille avec un optionnel. Le nil n'arrive qu'au tout premier
+    /// affichage : on l'ignore.
+    var scrolledMonth: Date? {
+        get { displayedMonth }
+        set { if let newValue { displayedMonth = newValue } }
+    }
+
     /// La grille de 42 jours du mois affiché.
     var grid: MonthGrid { grid(for: displayedMonth) }
 

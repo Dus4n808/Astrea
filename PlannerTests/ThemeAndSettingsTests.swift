@@ -172,10 +172,9 @@ struct NavigationTests {
         #expect(AppSection.phoneTabs.contains(.settings))
     }
 
-    @Test("Chaque section est atteignable sur Mac (sidebar + Réglages en bas)")
-    func everySectionReachableOnMac() {
-        for section in AppSection.allCases where section != .settings {
-            #expect(AppSection.main.contains(section), "\(section)")
-        }
+    @Test("Chaque section est atteignable sur Mac (sidebar + Réglages en bas)",
+          arguments: AppSection.allCases.filter { $0 != .settings })
+    func everySectionReachableOnMac(section: AppSection) {
+        #expect(AppSection.main.contains(section))
     }
 }

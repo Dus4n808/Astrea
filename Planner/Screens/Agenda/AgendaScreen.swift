@@ -14,7 +14,6 @@ import SwiftUI
 import SwiftData
 
 struct AgendaScreen: View {
-    @Environment(AppState.self) private var appState
     @Query(sort: \PlannerItem.date) private var items: [PlannerItem]
     @State private var filter: AgendaFilter = .todo
     @AppStorage(UserName.storageKey) private var userName = ""
@@ -27,8 +26,15 @@ struct AgendaScreen: View {
     #endif
 
     var body: some View {
+        // Calculés une seule fois par mise à jour : chacun parcourt tous les
+        // éléments, et ils servent chacun à deux endroits.
+        let groups = self.groups
+        let weekProgress = self.weekProgress
+
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+            // Paresseuse : avec le filtre « Fait » ou « Tout », la liste grandit
+            // tout le semestre ; seuls les jours visibles sont construits.
+            LazyVStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 if !userName.isEmpty {
                     Text("Salut \(userName)\(Text(" !").foregroundStyle(Theme.Colors.accent))")
                         .font(Theme.Fonts.display(28))
@@ -50,10 +56,15 @@ struct AgendaScreen: View {
                                    celebrates: filter == .todo && weekProgress.isComplete)
                 } else {
                     ForEach(groups) { group in
-                        if let title = group.separatorTitle {
-                            WeekSeparator(title: title)
+                        // Une seule vue par jour (le filet éventuel est dedans) :
+                        // la pile paresseuse n'a pas à évaluer chaque jour pour
+                        // savoir combien de lignes il produit.
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                            if let title = group.separatorTitle {
+                                WeekSeparator(title: title)
+                            }
+                            AgendaDayGroup(day: group.day, items: group.items)
                         }
-                        AgendaDayGroup(day: group.day, items: group.items)
                     }
                 }
             }

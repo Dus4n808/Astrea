@@ -16,6 +16,10 @@
 //  - Checklist (tâches uniquement)
 //  - Supprimer (en modification)
 //
+//  Chaque bloc est sa propre vue et ne reçoit que les champs du brouillon
+//  qu'il modifie : taper une lettre dans le titre ne redessine pas la
+//  checklist ni la liste des cours.
+//
 //  Toute la logique d'enregistrement est dans ItemDraft : cette vue ne fait
 //  qu'afficher et modifier le brouillon.
 //
@@ -26,16 +30,26 @@ import SwiftData
 struct ItemEditorView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Course.name) private var courses: [Course]
 
     let request: EditorRequest
     @State private var draft: ItemDraft
     @State private var isConfirmingDelete = false
     @FocusState private var isTitleFocused: Bool
 
+    /// En modification : l'élément tel que la base le voit en ce moment.
+    /// S'il disparaît (supprimé sur un autre appareil puis reçu via iCloud,
+    /// ou par Siri), la feuille se ferme au lieu d'enregistrer dans le vide.
+    @Query private var originalMatches: [PlannerItem]
+
     init(request: EditorRequest) {
         self.request = request
-        _draft = State(initialValue: ItemDraft(request: request))
+        let draft = ItemDraft(request: request)
+        _draft = State(initialValue: draft)
+        if let id = draft.originalID {
+            _originalMatches = Query(filter: #Predicate<PlannerItem> { $0.uuid == id })
+        } else {
+            _originalMatches = Query(filter: #Predicate<PlannerItem> { _ in false })
+        }
     }
 
     var body: some View {
@@ -43,11 +57,12 @@ struct ItemEditorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     ThemedSegmentedPicker(options: ItemKind.allCases, selection: $draft.kind) { $0.title }
-                    titleField
-                    if draft.kind != .holiday { courseSection }
-                    dateSection
-                    detailsSection
-                    if draft.kind == .task { checklistSection }
+                    EditorTitleField(title: $draft.title, isFocused: $isTitleFocused)
+                    if draft.kind != .holiday { EditorCourseSection(selection: $draft.course) }
+                    EditorDateSection(kind: draft.kind, date: $draft.date,
+                                      endDate: $draft.endDate, isAllDay: $draft.isAllDay)
+                    EditorDetailsSection(details: $draft.details)
+                    if draft.kind == .task { EditorChecklistSection(lines: $draft.checklist) }
                     if request.isEditing { deleteButton }
                 }
                 .padding(Theme.Spacing.xl)
@@ -79,148 +94,14 @@ struct ItemEditorView: View {
             // Création : le clavier s'ouvre directement sur le titre.
             if !request.isEditing { isTitleFocused = true }
         }
+        .onChange(of: originalMatches.isEmpty) { _, isGone in
+            if isGone && request.isEditing { dismiss() }
+        }
         .confirmationDialog("Supprimer « \(draft.trimmedTitle) » ?",
                             isPresented: $isConfirmingDelete, titleVisibility: .visible) {
             Button("Supprimer", role: .destructive) {
                 draft.delete(in: context)
                 dismiss()
-            }
-        }
-    }
-
-    // MARK: - Sections
-
-    private var titleField: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            // `prompt` coloré : sans lui, le texte d'aide est quasi
-            // invisible sur le fond clair du Mac.
-            TextField("Titre", text: $draft.title,
-                      prompt: Text("Titre").foregroundStyle(Theme.Colors.inkSecondary.opacity(0.6)),
-                      axis: .vertical)
-                .font(Theme.Fonts.display(30))
-                .tracking(-0.8)
-                .foregroundStyle(Theme.Colors.ink)
-                .textFieldStyle(.plain)
-                .focused($isTitleFocused)
-                .submitLabel(.done)
-            // Trait épais sous le titre (détail Swiss de la maquette). Il passe
-            // au rose pendant la saisie : c'est le seul repère de focus, le
-            // champ n'ayant volontairement pas de cadre.
-            Rectangle()
-                .fill(isTitleFocused ? Theme.Colors.accent : Theme.Colors.ink)
-                .frame(height: 3)
-                .animation(.snappy, value: isTitleFocused)
-        }
-    }
-
-    private var courseSection: some View {
-        EditorCard("Cours") {
-            if courses.isEmpty {
-                Text("Aucun cours. Ajoute-les dans la section Cours.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Colors.inkSecondary)
-            } else {
-                FlowLayout(spacing: Theme.Spacing.s, lineSpacing: Theme.Spacing.s) {
-                    ForEach(courses) { course in
-                        SelectableCourseChip(
-                            name: course.name,
-                            color: course.color.color,
-                            isSelected: draft.course == course
-                        ) {
-                            // Re-cliquer sur le cours sélectionné le désélectionne.
-                            draft.course = (draft.course == course) ? nil : course
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var dateSection: some View {
-        EditorCard("Quand") {
-            VStack(spacing: 0) {
-                let dayLabel = draft.kind == .holiday ? "Du" : "Date"
-                EditorRow(dayLabel, showsSeparator: false) {
-                    EditorDateField(dayLabel, selection: $draft.date)
-                }
-
-                if draft.kind == .holiday {
-                    EditorRow("Au") {
-                        EditorDateField("Au", selection: $draft.endDate, from: draft.date)
-                    }
-                } else {
-                    // Heure facultative : sans heure, l'élément est simplement
-                    // prévu ce jour-là.
-                    EditorRow("Heure") {
-                        if draft.isAllDay {
-                            Button {
-                                draft.addTime()
-                            } label: {
-                                EditorCapsule(text: "Ajouter une heure", systemImage: "plus",
-                                              color: Theme.Colors.accentDeep)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            HStack(spacing: Theme.Spacing.s) {
-                                EditorTimeField(selection: $draft.date)
-                                Button("Retirer l'heure", systemImage: "xmark") {
-                                    draft.removeTime()
-                                }
-                                .labelStyle(.iconOnly)
-                                .buttonStyle(.plain)
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(Theme.Colors.inkSecondary)
-                            }
-                        }
-                    }
-                }
-            }
-            // Les contrôles système (sélecteur de date iOS) prennent la
-            // couleur de l'app plutôt que le bleu par défaut.
-            .tint(Theme.Colors.accent)
-        }
-    }
-
-    private var detailsSection: some View {
-        EditorCard("Détails") {
-            TextField("Détails", text: $draft.details,
-                      prompt: Text("Pages à lire, consignes…").foregroundStyle(Theme.Colors.inkSecondary),
-                      axis: .vertical)
-                .lineLimit(3...8)
-                .textFieldStyle(.plain)
-                .font(.subheadline)
-                .foregroundStyle(Theme.Colors.ink)
-        }
-    }
-
-    private var checklistSection: some View {
-        EditorCard("Checklist") {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach($draft.checklist) { $line in
-                    HStack(spacing: Theme.Spacing.s) {
-                        CheckCircle(isOn: line.isDone) { line.isDone.toggle() }
-                        TextField("Élément", text: $line.title)
-                            .textFieldStyle(.plain)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(line.isDone ? Theme.Colors.inkSecondary : Theme.Colors.ink)
-                            .strikethrough(line.isDone)
-                        Button("Retirer", systemImage: "xmark") {
-                            draft.checklist.removeAll { $0.id == line.id }
-                        }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.plain)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Theme.Colors.inkSecondary)
-                    }
-                }
-
-                Button("Ajouter un élément", systemImage: "plus") {
-                    draft.checklist.append(.init(title: ""))
-                }
-                .buttonStyle(.plain)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.Colors.accent)
-                .padding(.top, draft.checklist.isEmpty ? 0 : Theme.Spacing.s)
             }
         }
     }
@@ -263,6 +144,176 @@ struct ItemEditorView: View {
             // Le bouton plein de la barre d'outils ignore la teinte de la
             // feuille : il faut la lui donner directement.
             .tint(Theme.Colors.accent)
+        }
+    }
+}
+
+// MARK: - Sections
+
+/// Gros titre souligné, sans cadre.
+private struct EditorTitleField: View {
+    @Binding var title: String
+    var isFocused: FocusState<Bool>.Binding
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            // `prompt` coloré : sans lui, le texte d'aide est quasi
+            // invisible sur le fond clair du Mac.
+            TextField("Titre", text: $title,
+                      prompt: Text("Titre").foregroundStyle(Theme.Colors.inkSecondary.opacity(0.6)),
+                      axis: .vertical)
+                .font(Theme.Fonts.display(30))
+                .tracking(-0.8)
+                .foregroundStyle(Theme.Colors.ink)
+                .textFieldStyle(.plain)
+                .focused(isFocused)
+                .submitLabel(.done)
+            // Trait épais sous le titre (détail Swiss de la maquette). Il passe
+            // au rose pendant la saisie : c'est le seul repère de focus, le
+            // champ n'ayant volontairement pas de cadre.
+            Rectangle()
+                .fill(isFocused.wrappedValue ? Theme.Colors.accent : Theme.Colors.ink)
+                .frame(height: 3)
+                .animation(.snappy, value: isFocused.wrappedValue)
+        }
+    }
+}
+
+/// Choix du cours : une chip par cours, re-cliquer désélectionne.
+/// La liste des cours est lue ici : l'éditeur n'en dépend pas ailleurs.
+private struct EditorCourseSection: View {
+    @Query(sort: \Course.name) private var courses: [Course]
+    @Binding var selection: Course?
+
+    var body: some View {
+        EditorCard("Cours") {
+            if courses.isEmpty {
+                Text("Aucun cours. Ajoute-les dans la section Cours.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Colors.inkSecondary)
+            } else {
+                FlowLayout(spacing: Theme.Spacing.s, lineSpacing: Theme.Spacing.s) {
+                    ForEach(courses) { course in
+                        SelectableCourseChip(
+                            name: course.name,
+                            color: course.color.color,
+                            isSelected: selection == course
+                        ) {
+                            // Re-cliquer sur le cours sélectionné le désélectionne.
+                            selection = (selection == course) ? nil : course
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Carte « Quand » : jour (ou « Du / Au » pour des vacances) et heure facultative.
+private struct EditorDateSection: View {
+    let kind: ItemKind
+    @Binding var date: Date
+    @Binding var endDate: Date
+    @Binding var isAllDay: Bool
+
+    var body: some View {
+        EditorCard("Quand") {
+            VStack(spacing: 0) {
+                let dayLabel = kind == .holiday ? "Du" : "Date"
+                EditorRow(dayLabel, showsSeparator: false) {
+                    EditorDateField(dayLabel, selection: $date)
+                }
+
+                if kind == .holiday {
+                    EditorRow("Au") {
+                        EditorDateField("Au", selection: $endDate, from: date)
+                    }
+                } else {
+                    // Heure facultative : sans heure, l'élément est simplement
+                    // prévu ce jour-là.
+                    EditorRow("Heure") {
+                        if isAllDay {
+                            Button {
+                                // Même règle que `ItemDraft.addTime`.
+                                date = ItemDraft.dateWithTime(date)
+                                isAllDay = false
+                            } label: {
+                                EditorCapsule(text: "Ajouter une heure", systemImage: "plus",
+                                              color: Theme.Colors.accentDeep)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            HStack(spacing: Theme.Spacing.s) {
+                                EditorTimeField(selection: $date)
+                                Button("Retirer l'heure", systemImage: "xmark") {
+                                    isAllDay = true
+                                }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.plain)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Theme.Colors.inkSecondary)
+                            }
+                        }
+                    }
+                }
+            }
+            // Les contrôles système (sélecteur de date iOS) prennent la
+            // couleur de l'app plutôt que le bleu par défaut.
+            .tint(Theme.Colors.accent)
+        }
+    }
+}
+
+/// Notes libres de l'élément.
+private struct EditorDetailsSection: View {
+    @Binding var details: String
+
+    var body: some View {
+        EditorCard("Détails") {
+            TextField("Détails", text: $details,
+                      prompt: Text("Pages à lire, consignes…").foregroundStyle(Theme.Colors.inkSecondary),
+                      axis: .vertical)
+                .lineLimit(3...8)
+                .textFieldStyle(.plain)
+                .font(.subheadline)
+                .foregroundStyle(Theme.Colors.ink)
+        }
+    }
+}
+
+/// Sous-tâches : cocher, renommer, retirer, ajouter.
+private struct EditorChecklistSection: View {
+    @Binding var lines: [ItemDraft.ChecklistLine]
+
+    var body: some View {
+        EditorCard("Checklist") {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach($lines) { $line in
+                    HStack(spacing: Theme.Spacing.s) {
+                        CheckCircle(isOn: line.isDone) { line.isDone.toggle() }
+                        TextField("Élément", text: $line.title)
+                            .textFieldStyle(.plain)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(line.isDone ? Theme.Colors.inkSecondary : Theme.Colors.ink)
+                            .strikethrough(line.isDone)
+                        Button("Retirer", systemImage: "xmark") {
+                            lines.removeAll { $0.id == line.id }
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.plain)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Theme.Colors.inkSecondary)
+                    }
+                }
+
+                Button("Ajouter un élément", systemImage: "plus") {
+                    lines.append(.init(title: ""))
+                }
+                .buttonStyle(.plain)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.Colors.accent)
+                .padding(.top, lines.isEmpty ? 0 : Theme.Spacing.s)
+            }
         }
     }
 }
