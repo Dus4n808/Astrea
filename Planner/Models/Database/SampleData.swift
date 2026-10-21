@@ -1,7 +1,7 @@
 //
 //  SampleData.swift
 //  Données d'exemple (reprises de ton planner actuel, octobre 2026).
-//  Utilisées pour les aperçus Xcode et en mode DEBUG sur une base vide.
+//  Utilisées uniquement pour les aperçus Xcode (voir PlannerStore.preview).
 //
 
 import Foundation
@@ -37,8 +37,8 @@ enum SampleData {
             PlannerItem(title: "lecture", date: day(18), course: mixtes),
             PlannerItem(title: "lectures", date: day(18), course: qualitatives),
             PlannerItem(title: "lectures", date: day(19), course: psycho),
-            PlannerItem(title: "chiamare x buono xa", date: day(19), course: altro),
-            PlannerItem(title: "texte bleona", date: day(19), course: mixtes),
+            PlannerItem(title: "appeler le secrétariat", date: day(19), course: altro),
+            PlannerItem(title: "texte de groupe", date: day(19), course: mixtes),
             PlannerItem(title: "appunti", date: day(21), course: diversite),
             PlannerItem(title: "texte", date: day(23), course: societes),
             PlannerItem(title: "lire lecture (avant cours)", date: day(26), course: qualitatives),

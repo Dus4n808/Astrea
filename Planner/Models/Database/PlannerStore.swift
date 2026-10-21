@@ -71,7 +71,12 @@ nonisolated enum PlannerStore {
     private static func makeSharedContainer() -> ModelContainer {
         let cloudConfiguration = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
         #if DEBUG
-        initializeCloudKitSchema(storeURL: cloudConfiguration.url)
+        // Seulement sur demande : lent, et inutile tant que les modèles ne
+        // changent pas. Après un changement de modèle, lancer une fois avec
+        // l'argument `-InitCloudKitSchema` (Scheme > Run > Arguments).
+        if ProcessInfo.processInfo.arguments.contains("-InitCloudKitSchema") {
+            initializeCloudKitSchema(storeURL: cloudConfiguration.url)
+        }
         #endif
         do {
             let container = try ModelContainer(for: schema, configurations: cloudConfiguration)

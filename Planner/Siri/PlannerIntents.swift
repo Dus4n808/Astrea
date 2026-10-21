@@ -23,6 +23,11 @@ struct AddTaskIntent: AppIntent {
         categoryName: "Planner"
     )
 
+    /// Par défaut, un intent tourne même appareil verrouillé : n'importe qui
+    /// tenant le téléphone pourrait lire ou modifier le planner via Siri.
+    /// Toutes les intents qui touchent aux données l'exigent donc.
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
     @Parameter(title: "Titre", requestValueDialog: "Quelle tâche veux-tu ajouter ?")
     var taskTitle: String
 
@@ -77,6 +82,8 @@ struct SetTaskDoneIntent: AppIntent {
         categoryName: "Planner"
     )
 
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
     @Parameter(title: "Tâche", requestValueDialog: "Quelle tâche ?")
     var task: PlannerItemEntity
 
@@ -109,6 +116,8 @@ struct UpcomingTasksIntent: AppIntent {
         "Liste les tâches d'Astrea encore à faire sur les prochains jours.",
         categoryName: "Planner"
     )
+
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     @Parameter(title: "Nombre de jours", default: 7,
                inclusiveRange: (1, 90))

@@ -115,14 +115,19 @@ struct ItemDetailView: View {
 
     private var topBar: some View {
         HStack {
-            Button("Fermer", systemImage: "xmark", action: onClose)
-                .labelStyle(.iconOnly)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.Colors.ink)
-                .frame(width: 34, height: 34)
-                .background(Theme.Colors.surface, in: .circle)
-                .buttonStyle(.plain)
-                .keyboardShortcut(.cancelAction)
+            // Cadre et fond dans le label : avec `.plain`, seul le label est
+            // cliquable (sur macOS, sinon seul le glyphe réagit au clic).
+            Button(action: onClose) {
+                Label("Fermer", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.Colors.ink)
+                    .frame(width: 34, height: 34)
+                    .background(Theme.Colors.surface, in: .circle)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
 
             Spacer()
 

@@ -179,6 +179,8 @@ struct TaskReminderEntityQuery: EntityStringQuery, IndexedEntityQuery {
 @AppIntent(schema: .reminders.createReminder)
 struct CreateTaskReminderIntent {
     static let isAssistantOnly = true
+    /// Pas de lecture ni d'écriture appareil verrouillé (voir AddTaskIntent).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     var title: String
     var list: CourseListEntity?
@@ -222,6 +224,8 @@ struct CreateTaskReminderIntent {
 @AppIntent(schema: .reminders.updateReminder)
 struct UpdateTaskReminderIntent {
     static let isAssistantOnly = true
+    /// Pas de lecture ni d'écriture appareil verrouillé (voir AddTaskIntent).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     var target: TaskReminderEntity
     var title: String?
@@ -273,6 +277,8 @@ struct UpdateTaskReminderIntent {
 @AppIntent(schema: .reminders.deleteReminders)
 struct DeleteTaskRemindersIntent: DeleteIntent {
     static let isAssistantOnly = true
+    /// Pas de lecture ni d'écriture appareil verrouillé (voir AddTaskIntent).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     var entities: [TaskReminderEntity]
 
