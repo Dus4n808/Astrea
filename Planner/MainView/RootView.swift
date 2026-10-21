@@ -57,6 +57,9 @@ struct RootView: View {
             // jour au lancement et en quittant l'app, pour rattraper tout ce
             // qui a été modifié dans l'interface (voir PlannerSpotlight).
             .task { await PlannerSpotlight.reindexAll() }
+            // Les notifications de rappel suivent les données, d'où qu'elles
+            // viennent (interface, Siri, autre appareil via iCloud).
+            .syncsReminders()
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background {
                     Task { await PlannerSpotlight.reindexAll() }

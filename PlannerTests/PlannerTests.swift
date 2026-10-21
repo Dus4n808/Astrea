@@ -93,6 +93,22 @@ struct ModelTests {
         #expect(!ItemKind.event.isCheckable)
         #expect(!ItemKind.holiday.isCheckable)
     }
+
+    @Test("Les tâches importantes à faire passent en tête du jour")
+    @MainActor
+    func importantTasksComeFirst() {
+        let early = PlannerItem(title: "tôt", date: .now)
+        let important = PlannerItem(title: "important", date: .now)
+        important.isImportant = true
+        let importantDone = PlannerItem(title: "important fait", date: .now)
+        importantDone.isImportant = true
+        importantDone.isDone = true
+        let late = PlannerItem(title: "tard", date: .now)
+
+        let sorted = AgendaScreen.importantFirst([early, importantDone, important, late])
+        // Une tâche importante déjà faite reprend sa place chronologique.
+        #expect(sorted.map(\.title) == ["important", "tôt", "important fait", "tard"])
+    }
 }
 
 // MARK: - Compatibilité CloudKit

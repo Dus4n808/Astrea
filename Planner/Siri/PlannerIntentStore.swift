@@ -89,7 +89,8 @@ actor PlannerIntentStore {
         title: String,
         kind: ItemKind,
         date: Date,
-        courseID: UUID?
+        courseID: UUID?,
+        isImportant: Bool = false
     ) throws -> PlannerItemEntity {
         let course = try courseID.flatMap { id in
             try modelContext.fetch(
@@ -97,6 +98,8 @@ actor PlannerIntentStore {
             ).first
         }
         let item = PlannerItem(title: title, kind: kind, date: date, course: course)
+        // Même règle que l'éditeur : seules les tâches peuvent être importantes.
+        item.isImportant = kind == .task && isImportant
         modelContext.insert(item)
         try modelContext.save()
         return PlannerItemEntity(item)
@@ -184,10 +187,12 @@ actor PlannerIntentStore {
         details: String,
         date: Date,
         isAllDay: Bool,
-        listID: UUID?
+        listID: UUID?,
+        isImportant: Bool = false
     ) throws -> TaskReminderEntity {
         let item = PlannerItem(title: title, kind: .task, date: date, isAllDay: isAllDay,
                                course: try course(forListID: listID), details: details)
+        item.isImportant = isImportant
         modelContext.insert(item)
         try modelContext.save()
         return TaskReminderEntity(item)
@@ -201,6 +206,8 @@ actor PlannerIntentStore {
         var isAllDay: Bool?
         var isDone: Bool?
         var listID: UUID?
+        /// « Important » côté app, « signalé » (drapeau) côté Siri.
+        var isImportant: Bool?
     }
 
     /// Applique les changements demandés. Renvoie nil si la tâche n'existe plus.
@@ -214,6 +221,7 @@ actor PlannerIntentStore {
         if let isAllDay = changes.isAllDay { item.isAllDay = isAllDay }
         if let isDone = changes.isDone { item.isDone = isDone }
         if let listID = changes.listID { item.course = try course(forListID: listID) }
+        if let isImportant = changes.isImportant { item.isImportant = isImportant }
 
         try modelContext.save()
         return TaskReminderEntity(item)

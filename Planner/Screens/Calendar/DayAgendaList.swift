@@ -29,13 +29,15 @@ struct DayAgendaList: View {
             if items.isEmpty {
                 EmptyDayView { appState.openEditor(on: day) }
             } else {
-                ForEach(items) { item in
+                // Même règle que l'agenda : les tâches importantes en tête.
+                ForEach(AgendaScreen.importantFirst(items)) { item in
                     ItemRow(
                         title: item.title,
                         subtitle: item.subtitle,
                         color: item.displayColor,
                         isDone: item.isDone,
                         details: item.details,
+                        isImportant: item.isImportant,
                         onToggle: item.kind.isCheckable ? { toggle(item) } : nil
                     )
                     .contentShape(.rect)

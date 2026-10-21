@@ -29,6 +29,10 @@ struct ItemDraft {
     var endDate: Date = .now
     var course: Course?
     var details: String = ""
+    /// Tâche mise en avant dans l'agenda (tâches uniquement).
+    var isImportant: Bool = false
+    /// Rappel avant l'élément (pas pour les vacances).
+    var reminder: ReminderOption = .none
     var checklist: [ChecklistLine] = []
 
     /// L'élément d'origine si on modifie, nil si on crée.
@@ -58,6 +62,8 @@ struct ItemDraft {
             endDate = item.endDate ?? item.date
             course = item.course
             details = item.details
+            isImportant = item.isImportant
+            reminder = item.reminder
             checklist = item.sortedChecklist.map { ChecklistLine(title: $0.title, isDone: $0.isDone) }
         }
     }
@@ -121,6 +127,11 @@ struct ItemDraft {
         // Des vacances ne sont pas liées à un cours.
         item.course = kind == .holiday ? nil : course
         item.details = details.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Seules les tâches peuvent être importantes.
+        item.isImportant = kind == .task && isImportant
+        // Pas de rappel pour des vacances ; ailleurs, un choix toujours
+        // compatible avec l'heure (ou son absence).
+        item.reminder = kind == .holiday ? .none : reminder.adapted(isAllDay: isAllDay)
         replaceChecklist(of: item, in: context)
     }
 

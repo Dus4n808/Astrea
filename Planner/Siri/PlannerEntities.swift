@@ -80,13 +80,18 @@ struct PlannerItemEntity: AppEntity {
     @Property(title: "Cours")
     var courseName: String?
 
-    init(id: UUID, title: String, date: Date, isDone: Bool, kind: ItemKind, courseName: String?) {
+    @Property(title: "Important")
+    var isImportant: Bool
+
+    init(id: UUID, title: String, date: Date, isDone: Bool, kind: ItemKind, courseName: String?,
+         isImportant: Bool = false) {
         self.id = id
         self.title = title
         self.date = date
         self.isDone = isDone
         self.kind = kind
         self.courseName = courseName
+        self.isImportant = isImportant
     }
 
     init(_ item: PlannerItem) {
@@ -95,7 +100,8 @@ struct PlannerItemEntity: AppEntity {
                   date: item.date,
                   isDone: item.isDone,
                   kind: item.kind,
-                  courseName: item.course?.name)
+                  courseName: item.course?.name,
+                  isImportant: item.isImportant)
     }
 
     var displayRepresentation: DisplayRepresentation {

@@ -36,6 +36,18 @@ nonisolated final class PlannerItem {
 
     var details: String = ""
     var isDone: Bool = false
+
+    /// Tâche importante : mise en avant dans l'agenda (en tête du jour,
+    /// carte soulignée). Valeur par défaut obligatoire pour CloudKit : les
+    /// éléments déjà synchronisés la prennent sans migration.
+    var isImportant: Bool = false
+
+    /// Rappel avant l'élément (voir ReminderOption). Stocké en texte, vide =
+    /// aucun rappel. Utilise plutôt `reminder`. Les notifications elles-mêmes
+    /// sont programmées par chaque appareil à partir de ce champ
+    /// (ReminderScheduler) : elles suivent donc les changements reçus d'iCloud.
+    var reminderRaw: String = ""
+
     var createdAt: Date = Date.now
 
     /// Cours associé (optionnel : des vacances n'ont pas de cours).

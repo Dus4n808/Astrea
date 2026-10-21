@@ -209,7 +209,7 @@ private struct DetailStatusButton: View {
     }
 }
 
-/// Carte « Quand » : jour(s) et heure.
+/// Carte « Quand » : jour(s), heure et rappel éventuel.
 private struct DetailWhenSection: View {
     let item: PlannerItem
 
@@ -224,6 +224,10 @@ private struct DetailWhenSection: View {
                               value: Self.longDay(item.date))
                     DetailRow(systemImage: "clock", label: "Heure",
                               value: item.isAllDay ? "Toute la journée" : item.date.timeText)
+                    if item.reminder != .none {
+                        DetailRow(systemImage: "bell", label: "Rappel",
+                                  value: item.reminder.adapted(isAllDay: item.isAllDay).title)
+                    }
                 }
             }
         }

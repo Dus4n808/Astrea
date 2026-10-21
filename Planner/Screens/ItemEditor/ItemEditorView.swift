@@ -12,6 +12,8 @@
 //  - Titre
 //  - Cours (sauf vacances)
 //  - Date, heure, date de fin (vacances)
+//  - Rappel (sauf vacances)
+//  - Priorité « Important » (tâches uniquement)
 //  - Détails
 //  - Checklist (tâches uniquement)
 //  - Supprimer (en modification)
@@ -35,6 +37,17 @@ struct ItemEditorView: View {
     @State private var draft: ItemDraft
     @State private var isConfirmingDelete = false
     @FocusState private var isTitleFocused: Bool
+    /// Saisie en cours dans les détails : Entrée y fait un retour à la ligne
+    /// au lieu de valider (voir le bouton Valider).
+    @FocusState private var isDetailsFocused: Bool
+    /// Ligne de checklist en cours de saisie : Entrée y passe à la ligne
+    /// suivante au lieu de valider.
+    @FocusState private var focusedChecklistLine: UUID?
+
+    /// Entrée est prise par le champ actif (retour à la ligne, élément suivant).
+    private var returnKeyIsBusy: Bool {
+        isDetailsFocused || focusedChecklistLine != nil
+    }
 
     /// En modification : l'élément tel que la base le voit en ce moment.
     /// S'il disparaît (supprimé sur un autre appareil puis reçu via iCloud,
@@ -61,8 +74,13 @@ struct ItemEditorView: View {
                     if draft.kind != .holiday { EditorCourseSection(selection: $draft.course) }
                     EditorDateSection(kind: draft.kind, date: $draft.date,
                                       endDate: $draft.endDate, isAllDay: $draft.isAllDay)
-                    EditorDetailsSection(details: $draft.details)
-                    if draft.kind == .task { EditorChecklistSection(lines: $draft.checklist) }
+                    if draft.kind != .holiday {
+                        EditorReminderSection(reminder: $draft.reminder, isAllDay: draft.isAllDay,
+                                              isImportant: draft.kind == .task && draft.isImportant)
+                    }
+                    if draft.kind == .task { EditorImportantSection(isImportant: $draft.isImportant) }
+                    EditorDetailsSection(details: $draft.details, isFocused: $isDetailsFocused)
+                    if draft.kind == .task { EditorChecklistSection(lines: $draft.checklist, focusedLine: $focusedChecklistLine) }
                     if request.isEditing { deleteButton }
                 }
                 .padding(Theme.Spacing.xl)
@@ -82,6 +100,11 @@ struct ItemEditorView: View {
             .toolbar { toolbarContent }
             .animation(.snappy, value: draft.kind)
             .animation(.snappy, value: draft.isAllDay)
+            // Ajouter ou retirer l'heure change les rappels possibles :
+            // « 10 min avant » n'a pas de sens pour une journée entière.
+            .onChange(of: draft.isAllDay) { _, isAllDay in
+                draft.reminder = draft.reminder.adapted(isAllDay: isAllDay)
+            }
         }
         // Toute la feuille (curseur, contrôles) prend la couleur du thème.
         .tint(Theme.Colors.accent)
@@ -126,8 +149,25 @@ struct ItemEditorView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("Annuler", systemImage: "xmark") { dismiss() }
+                // Échap ferme la feuille (sur Mac, rien ne le fait sinon).
+                .keyboardShortcut(.cancelAction)
+                #if os(macOS)
+                // Sur Mac, la barre d'une feuille applique son propre verre
+                // teinté (translucide, couleur système) : on impose un bouton
+                // neutre plein, en retrait derrière Valider.
+                // En toutes lettres et en grand : en icône seule, seul le
+                // petit « × » réagissait au clic, et un clic à côté était perdu.
+                .labelStyle(.titleOnly)
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .foregroundStyle(Theme.Colors.ink)
+                #else
                 .tint(Theme.Colors.ink)
+                #endif
         }
+        #if os(macOS)
+        .sharedBackgroundVisibility(.hidden)
+        #endif
         ToolbarItem(placement: .confirmationAction) {
             Button("Valider", systemImage: "checkmark") {
                 draft.save(in: context)
@@ -135,16 +175,36 @@ struct ItemEditorView: View {
                 if !request.isEditing && draft.kind == .task {
                     PlannerDonations.taskCreated(title: draft.trimmedTitle,
                                                  date: draft.date,
-                                                 course: draft.course)
+                                                 course: draft.course,
+                                                 isImportant: draft.isImportant)
                 }
                 dismiss()
             }
             .disabled(!draft.canSave)
+            #if os(macOS)
+            // Entrée valide, sauf dans les détails (retour à la ligne) et la
+            // checklist (élément suivant) : là, ⌘Entrée prend le relais. Il
+            // faut retirer le raccourci (et pas seulement le doubler) car sur
+            // Mac la fenêtre traite les raccourcis avant le champ de texte.
+            .keyboardShortcut(returnKeyIsBusy ? KeyboardShortcut(.return, modifiers: .command)
+                                              : .defaultAction)
+            #else
             .keyboardShortcut(.return, modifiers: .command)
+            #endif
+            #if os(macOS)
+            // Bouton plein et opaque à la couleur du thème (et non le verre
+            // translucide par défaut de la barre). Même gabarit qu'Annuler.
+            .labelStyle(.titleOnly)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            #endif
             // Le bouton plein de la barre d'outils ignore la teinte de la
             // feuille : il faut la lui donner directement.
             .tint(Theme.Colors.accent)
         }
+        #if os(macOS)
+        .sharedBackgroundVisibility(.hidden)
+        #endif
     }
 }
 
@@ -264,26 +324,205 @@ private struct EditorDateSection: View {
     }
 }
 
+/// Rappel avant l'élément : une pastille par choix, adaptés à l'heure.
+/// Une phrase sous les pastilles dit ce qui va réellement se passer
+/// (heure du rappel, ou pourquoi rien ne partira).
+private struct EditorReminderSection: View {
+    @Binding var reminder: ReminderOption
+    let isAllDay: Bool
+    let isImportant: Bool
+
+    @AppStorage(NotificationSettings.enabledKey) private var notificationsEnabled = true
+    @AppStorage(NotificationSettings.dayTimeKey) private var dayTime = NotificationSettings.defaultDayTime
+    @AppStorage(NotificationSettings.importantOnlyKey) private var importantOnly = false
+    private var scheduler: ReminderScheduler { .shared }
+
+    var body: some View {
+        EditorCard("Rappel") {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                FlowLayout(spacing: Theme.Spacing.s, lineSpacing: Theme.Spacing.s) {
+                    ForEach(ReminderOption.choices(isAllDay: isAllDay)) { option in
+                        ReminderChip(option: option, isSelected: reminder == option) {
+                            select(option)
+                        }
+                    }
+                }
+                if let hint {
+                    Label(hint.text, systemImage: hint.systemImage)
+                        .font(.caption)
+                        .foregroundStyle(hint.isWarning ? Theme.Colors.accentDeep : Theme.Colors.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.snappy, value: reminder)
+        }
+        .task { await scheduler.refreshAuthorization() }
+    }
+
+    private func select(_ option: ReminderOption) {
+        reminder = option
+        // Premier rappel choisi : c'est le bon moment pour demander la
+        // permission (la personne comprend pourquoi).
+        if option != .none {
+            Task { await scheduler.requestAuthorizationIfNeeded() }
+        }
+    }
+
+    private struct Hint {
+        let text: String
+        let systemImage: String
+        var isWarning = false
+    }
+
+    /// Ce qui va se passer, dans l'ordre : d'abord ce qui empêche le rappel.
+    private var hint: Hint? {
+        guard reminder != .none else { return nil }
+        if scheduler.authorization == .denied {
+            return Hint(text: "Les notifications d'Astrea sont refusées dans les réglages de l'appareil.",
+                        systemImage: "bell.slash", isWarning: true)
+        }
+        if !notificationsEnabled {
+            return Hint(text: "Les notifications sont coupées dans les Réglages d'Astrea.",
+                        systemImage: "bell.slash", isWarning: true)
+        }
+        if importantOnly && !isImportant {
+            return Hint(text: "Les rappels ne partent que pour les tâches importantes (Réglages).",
+                        systemImage: "star", isWarning: true)
+        }
+        if isAllDay {
+            let time = NotificationSettings(dayTime: dayTime).dayTimeText
+            let day = reminder == .dayBefore ? "La veille" : "Le jour même"
+            return Hint(text: "\(day) à \(time). L'heure se change dans les Réglages.",
+                        systemImage: "bell")
+        }
+        return nil
+    }
+}
+
+/// Pastille d'un choix de rappel : pleine, à la couleur du thème, quand elle est choisie.
+private struct ReminderChip: View {
+    let option: ReminderOption
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if isSelected {
+                    Image(systemName: option == .none ? "bell.slash.fill" : "bell.fill")
+                        .font(.caption.weight(.bold))
+                }
+                Text(option.title)
+                    .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isSelected ? Theme.Colors.onAccent : Theme.Colors.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(isSelected ? Theme.Colors.accent : Theme.Colors.background, in: .capsule)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Rappel : \(option.title)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .sensoryFeedback(.selection, trigger: isSelected) { _, newValue in newValue }
+    }
+}
+
+/// Option « Important » : la tâche sera mise en avant dans l'agenda.
+/// Toute la ligne est cliquable ; l'étoile se remplit quand c'est coché.
+private struct EditorImportantSection: View {
+    @Binding var isImportant: Bool
+
+    var body: some View {
+        EditorCard("Priorité") {
+            Button {
+                isImportant.toggle()
+            } label: {
+                HStack(spacing: Theme.Spacing.m) {
+                    Image(systemName: isImportant ? "star.fill" : "star")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(isImportant ? Theme.Colors.accent : Theme.Colors.inkSecondary)
+                        .contentTransition(.symbolEffect(.replace))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Important")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.Colors.ink)
+                        Text("Mise en avant dans l'agenda")
+                            .font(.caption)
+                            .foregroundStyle(Theme.Colors.inkSecondary)
+                    }
+                    Spacer(minLength: 0)
+                    // Même case que la checklist, purement visuelle ici :
+                    // c'est le bouton entier qui bascule l'option.
+                    CheckCircle(isOn: isImportant) { isImportant.toggle() }
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Important")
+            .accessibilityValue(isImportant ? "Activé" : "Désactivé")
+            .accessibilityAddTraits(isImportant ? .isSelected : [])
+            .sensoryFeedback(.selection, trigger: isImportant)
+        }
+    }
+}
+
 /// Notes libres de l'élément.
 private struct EditorDetailsSection: View {
     @Binding var details: String
+    var isFocused: FocusState<Bool>.Binding
+
+    private static let placeholder = "Pages à lire, consignes…"
 
     var body: some View {
         EditorCard("Détails") {
+            #if os(macOS)
+            // Sur Mac, un TextField multiligne valide avec Entrée (le retour
+            // à la ligne demande ⌥Entrée) : un vrai éditeur de texte permet
+            // d'aller à la ligne avec Entrée, comme partout ailleurs.
+            TextEditor(text: $details)
+                .scrollContentBackground(.hidden)
+                .font(.subheadline)
+                .foregroundStyle(Theme.Colors.ink)
+                // Même hauteur que le champ iOS : 3 lignes, jusqu'à 8.
+                .frame(minHeight: 54, maxHeight: 150)
+                .focused(isFocused)
+                .overlay(alignment: .topLeading) {
+                    if details.isEmpty {
+                        Text(Self.placeholder)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.Colors.inkSecondary)
+                            // Aligné sur la marge interne du texte de l'éditeur.
+                            .padding(.leading, 5)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .accessibilityLabel("Détails")
+            #else
             TextField("Détails", text: $details,
-                      prompt: Text("Pages à lire, consignes…").foregroundStyle(Theme.Colors.inkSecondary),
+                      prompt: Text(Self.placeholder).foregroundStyle(Theme.Colors.inkSecondary),
                       axis: .vertical)
                 .lineLimit(3...8)
                 .textFieldStyle(.plain)
                 .font(.subheadline)
                 .foregroundStyle(Theme.Colors.ink)
+                .focused(isFocused)
+            #endif
         }
     }
 }
 
 /// Sous-tâches : cocher, renommer, retirer, ajouter.
+/// Entrée dans une ligne passe à la suivante (et en crée une au bout),
+/// pour enchaîner la saisie au clavier sans toucher la souris.
 private struct EditorChecklistSection: View {
     @Binding var lines: [ItemDraft.ChecklistLine]
+    var focusedLine: FocusState<UUID?>.Binding
 
     var body: some View {
         EditorCard("Checklist") {
@@ -296,6 +535,9 @@ private struct EditorChecklistSection: View {
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(line.isDone ? Theme.Colors.inkSecondary : Theme.Colors.ink)
                             .strikethrough(line.isDone)
+                            .focused(focusedLine, equals: line.id)
+                            .submitLabel(.next)
+                            .onSubmit { advance(from: line.id) }
                         Button("Retirer", systemImage: "xmark") {
                             lines.removeAll { $0.id == line.id }
                         }
@@ -307,7 +549,7 @@ private struct EditorChecklistSection: View {
                 }
 
                 Button("Ajouter un élément", systemImage: "plus") {
-                    lines.append(.init(title: ""))
+                    appendLine()
                 }
                 .buttonStyle(.plain)
                 .font(.subheadline.weight(.semibold))
@@ -315,6 +557,28 @@ private struct EditorChecklistSection: View {
                 .padding(.top, lines.isEmpty ? 0 : Theme.Spacing.s)
             }
         }
+    }
+
+    /// Entrée dans une ligne :
+    /// - une ligne suit → on y passe ;
+    /// - dernière ligne remplie → on en crée une nouvelle, prête à taper ;
+    /// - dernière ligne vide → on s'arrête (pas de lignes vides en série).
+    private func advance(from id: UUID) {
+        guard let index = lines.firstIndex(where: { $0.id == id }) else { return }
+        if index + 1 < lines.count {
+            focusedLine.wrappedValue = lines[index + 1].id
+        } else if lines[index].title.trimmingCharacters(in: .whitespaces).isEmpty {
+            focusedLine.wrappedValue = nil
+        } else {
+            appendLine()
+        }
+    }
+
+    /// Ajoute une ligne vide et y place le curseur.
+    private func appendLine() {
+        let line = ItemDraft.ChecklistLine(title: "")
+        lines.append(line)
+        focusedLine.wrappedValue = line.id
     }
 }
 

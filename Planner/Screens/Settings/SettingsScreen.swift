@@ -1,6 +1,7 @@
 //
 //  SettingsScreen.swift
-//  Réglages : prénom, thème de couleurs, état de la synchronisation iCloud.
+//  Réglages : prénom, thème de couleurs, notifications (voir
+//  NotificationSettingsSection), état de la synchronisation iCloud.
 //
 //  Le prénom suit les mêmes règles qu'à l'onboarding (UserName) et
 //  s'enregistre dès qu'il est valide : pas de bouton « Enregistrer ».
@@ -12,6 +13,7 @@ import SwiftUI
 struct SettingsScreen: View {
     @AppStorage(UserName.storageKey) private var savedName = ""
     @State private var nameDraft = ""
+    @FocusState private var isNameFocused: Bool
 
     private var themeStore: ThemeStore { .shared }
     private var nameError: UserName.ValidationError? { UserName.validate(nameDraft) }
@@ -21,6 +23,7 @@ struct SettingsScreen: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 nameSection
                 themeSection
+                NotificationSettingsSection()
                 syncSection
             }
             .padding(Theme.Spacing.xl)
@@ -34,41 +37,59 @@ struct SettingsScreen: View {
 
     // MARK: - Prénom
 
+    /// Même grain que le titre de l'éditeur : gros texte sans cadre, trait
+    /// épais dessous qui passe à l'accent pendant la saisie, et une pastille
+    /// avec l'initiale pour donner un visage à la carte.
     private var nameSection: some View {
         EditorCard("Ton prénom") {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                TextField("Ton prénom", text: $nameDraft,
-                          prompt: Text("Ton prénom").foregroundStyle(Theme.Colors.inkSecondary))
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Theme.Colors.ink)
-                    .textFieldStyle(.plain)
-                    .autocorrectionDisabled()
-                    #if os(iOS)
-                    .textInputAutocapitalization(.words)
-                    .textContentType(.givenName)
-                    #endif
-                    .onChange(of: nameDraft) { _, newValue in
-                        let clean = UserName.sanitize(newValue)
-                        if clean != newValue {
-                            nameDraft = clean
-                        } else if UserName.validate(clean) == nil {
-                            // Valide : on l'enregistre tout de suite. Invalide
-                            // (trop court) : on garde l'ancien prénom, jamais vide.
-                            savedName = UserName.normalized(clean)
-                        }
-                    }
+            HStack(alignment: .center, spacing: Theme.Spacing.l) {
+                NameInitialBadge(name: nameDraft.isEmpty ? savedName : nameDraft)
 
-                HStack {
-                    // Tant que c'est invalide, l'ancien prénom reste enregistré.
-                    if let nameError {
-                        Text(nameError.message)
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    TextField("Ton prénom", text: $nameDraft,
+                              prompt: Text("Ton prénom").foregroundStyle(Theme.Colors.inkSecondary.opacity(0.6)))
+                        .font(Theme.Fonts.display(24))
+                        .tracking(-0.5)
+                        .foregroundStyle(Theme.Colors.ink)
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
+                        .focused($isNameFocused)
+                        .submitLabel(.done)
+                        #if os(iOS)
+                        .textInputAutocapitalization(.words)
+                        .textContentType(.givenName)
+                        #endif
+                        .onChange(of: nameDraft) { _, newValue in
+                            let clean = UserName.sanitize(newValue)
+                            if clean != newValue {
+                                nameDraft = clean
+                            } else if UserName.validate(clean) == nil {
+                                // Valide : on l'enregistre tout de suite. Invalide
+                                // (trop court) : on garde l'ancien prénom, jamais vide.
+                                savedName = UserName.normalized(clean)
+                            }
+                        }
+
+                    Rectangle()
+                        .fill(isNameFocused ? Theme.Colors.accent : Theme.Colors.gridLine)
+                        .frame(height: 2)
+                        .animation(.snappy, value: isNameFocused)
+
+                    HStack {
+                        // Tant que c'est invalide, l'ancien prénom reste enregistré.
+                        if let nameError {
+                            Text(nameError.message)
+                                .foregroundStyle(Theme.Colors.accentDeep)
+                        } else {
+                            Text("C'est comme ça qu'Astrea te salue.")
+                        }
+                        Spacer()
+                        Text("\(nameDraft.count)/\(UserName.maxLength)")
+                            .monospacedDigit()
                     }
-                    Spacer()
-                    Text("\(nameDraft.count)/\(UserName.maxLength)")
-                        .monospacedDigit()
+                    .font(.caption)
+                    .foregroundStyle(Theme.Colors.inkSecondary)
                 }
-                .font(.caption)
-                .foregroundStyle(Theme.Colors.inkSecondary)
             }
         }
     }
@@ -112,6 +133,35 @@ struct SettingsScreen: View {
         // Vérifié à l'ouverture des réglages, puis à chaque changement de
         // compte tant que l'écran reste affiché.
         .task { await ICloudStatus.shared.monitor() }
+    }
+}
+
+/// Pastille ronde à la couleur du thème, avec l'initiale du prénom.
+private struct NameInitialBadge: View {
+    let name: String
+
+    private var initial: String {
+        name.trimmingCharacters(in: .whitespaces).first.map { String($0).uppercased() } ?? ""
+    }
+
+    var body: some View {
+        Circle()
+            .fill(Theme.Colors.accent)
+            .frame(width: 52, height: 52)
+            .overlay {
+                if initial.isEmpty {
+                    Image(systemName: "person.fill")
+                        .font(.title3)
+                        .foregroundStyle(Theme.Colors.onAccent)
+                } else {
+                    Text(initial)
+                        .font(Theme.Fonts.display(24))
+                        .foregroundStyle(Theme.Colors.onAccent)
+                        .contentTransition(.numericText())
+                }
+            }
+            .animation(.snappy, value: initial)
+            .accessibilityHidden(true)
     }
 }
 

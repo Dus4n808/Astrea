@@ -131,6 +131,46 @@ struct AppleIntelligenceStoreTests {
         #expect(updated.note.map { String($0.characters) } == "chapitre 3")
     }
 
+    @Test("« Signalé » pour Siri = « Important » dans l'app, à la création")
+    func flaggedCreatesImportantTask() async throws {
+        let store = try makeStore()
+        let flagged = try await store.addTask(title: "partiel", details: "", date: .now,
+                                              isAllDay: true, listID: nil, isImportant: true)
+        let normal = try await store.addTask(title: "lire", details: "", date: .now,
+                                             isAllDay: true, listID: nil)
+
+        #expect(flagged.isFlagged == true)
+        #expect(normal.isFlagged == false)
+        // L'app voit bien la même tâche comme importante.
+        #expect(try await store.items(ids: [flagged.id]).first?.isImportant == true)
+    }
+
+    @Test("Signaler puis retirer le signalement, sans toucher au reste")
+    func flagCanBeToggledByUpdate() async throws {
+        let store = try makeStore()
+        let created = try await store.addTask(title: "lire", details: "", date: .now,
+                                              isAllDay: true, listID: nil)
+
+        let flagged = try #require(try await store.updateTask(id: created.id, .init(isImportant: true)))
+        #expect(flagged.isFlagged == true)
+        #expect(flagged.isCompleted == false)
+
+        // Une mise à jour qui ne parle pas du drapeau ne le retire pas.
+        let done = try #require(try await store.updateTask(id: created.id, .init(isDone: true)))
+        #expect(done.isFlagged == true)
+
+        let unflagged = try #require(try await store.updateTask(id: created.id, .init(isImportant: false)))
+        #expect(unflagged.isFlagged == false)
+    }
+
+    @Test("Un événement ne peut pas être important, même demandé par un raccourci")
+    func eventsAreNeverImportant() async throws {
+        let store = try makeStore()
+        let event = try await store.addItem(title: "colloque", kind: .event, date: .now,
+                                            courseID: nil, isImportant: true)
+        #expect(event.isImportant == false)
+    }
+
     @Test("Mettre à jour une tâche disparue renvoie nil")
     func updateMissing() async throws {
         let store = try makeStore()

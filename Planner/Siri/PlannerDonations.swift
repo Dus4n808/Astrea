@@ -16,11 +16,12 @@ import Foundation
 
 enum PlannerDonations {
 
-    static func taskCreated(title: String, date: Date, course: Course?) {
+    static func taskCreated(title: String, date: Date, course: Course?, isImportant: Bool = false) {
         let intent = AddTaskIntent()
         intent.taskTitle = title
         intent.dueDate = date
         intent.course = course.map(CourseEntity.init)
+        intent.isImportant = isImportant
         // Une donation ratée ne doit jamais gêner l'enregistrement.
         Task { try? await IntentDonationManager.shared.donate(intent: intent) }
     }

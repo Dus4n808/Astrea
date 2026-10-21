@@ -107,8 +107,16 @@ struct AgendaScreen: View {
             // Pas de filet tout en haut : seulement au changement de période.
             let title = (previous != nil && previous != period) ? period.separatorTitle : nil
             previous = period
-            return AgendaDay(day: day, items: byDay[day] ?? [], separatorTitle: title)
+            return AgendaDay(day: day, items: Self.importantFirst(byDay[day] ?? []), separatorTitle: title)
         }
+    }
+
+    /// Les tâches importantes pas encore faites passent en tête du jour ;
+    /// le reste garde l'ordre chronologique de la requête (tri stable).
+    static func importantFirst(_ items: [PlannerItem]) -> [PlannerItem] {
+        let highlighted = items.filter { $0.isImportant && !$0.isDone }
+        guard !highlighted.isEmpty else { return items }
+        return highlighted + items.filter { !($0.isImportant && !$0.isDone) }
     }
 
     /// Tâches de la semaine en cours : combien sont faites sur le total.

@@ -12,6 +12,7 @@
 //    tâche  → rappel  (`.reminders.reminder`)
 //    cours  → liste   (`.reminders.list`) ; « Sans cours » est une liste virtuelle
 //    détails → note,  échéance → dueDate,  faite → isCompleted
+//    importante → isFlagged (« signale-le », « marque-le comme important »)
 //
 //  Les intents d'ici sont `isAssistantOnly` : invisibles dans l'app
 //  Raccourcis, où les anciennes intents restent la référence. C'est la
@@ -23,7 +24,7 @@
 //  une propriété requise manquante ou mal typée = erreur de build. Le schéma
 //  impose donc aussi des champs que le planner ne connaît pas (lieu, section,
 //  récurrence, drapeau…). Règle suivie :
-//  - sans conséquence (drapeau, tags, images) → accepté et ignoré ;
+//  - sans conséquence (tags, images) → accepté et ignoré ;
 //  - liens → ajoutés aux détails ;
 //  - ce qui changerait le sens de la tâche (récurrence, rappel par lieu) →
 //    refusé avec un message clair, plutôt qu'une tâche silencieusement fausse.
@@ -115,12 +116,13 @@ struct TaskReminderEntity: IndexedEntity {
     var isCompleted: Bool
     var creationDate: Date?
     var list: CourseListEntity
+    /// Le drapeau du schéma = l'option « Important » de l'app.
+    var isFlagged: Bool?
 
     // Exigés par le schéma, sans équivalent dans le planner : toujours vides.
     var tags: Set<String>
     var urls: [URL]
     var recurrence: Calendar.RecurrenceRule?
-    var isFlagged: Bool?
     var completionDate: Date?
     var locationTrigger: LocationTriggerEntity?
 
@@ -132,10 +134,10 @@ struct TaskReminderEntity: IndexedEntity {
         self.isCompleted = item.isDone
         self.creationDate = item.createdAt
         self.list = item.course.map(CourseListEntity.init) ?? .noCourse
+        self.isFlagged = item.isImportant
         self.tags = []
         self.urls = []
         self.recurrence = nil
-        self.isFlagged = nil
         self.completionDate = nil
         self.locationTrigger = nil
     }
@@ -183,9 +185,10 @@ struct CreateTaskReminderIntent {
     var note: AttributedString?
     var dueDate: DateComponents?
     var urls: [URL]
+    /// « Rappelle-moi … et marque-le comme important » → tâche importante.
+    var isFlagged: Bool?
 
     // Exigés par le schéma, sans équivalent dans le planner.
-    var isFlagged: Bool?
     var images: [IntentFile]
     var tags: Set<String>
     var recurrence: Calendar.RecurrenceRule?
@@ -207,7 +210,8 @@ struct CreateTaskReminderIntent {
                                               details: TaskNote.details(note: note, urls: urls) ?? "",
                                               date: due.date,
                                               isAllDay: due.isAllDay,
-                                              listID: list?.id)
+                                              listID: list?.id,
+                                              isImportant: isFlagged ?? false)
         await PlannerSpotlight.index([created])
         return .result(value: created)
     }
@@ -226,10 +230,11 @@ struct UpdateTaskReminderIntent {
     var isCompleted: Bool?
     var list: CourseListEntity?
     var urls: [URL]?
+    /// Signaler / retirer le signalement = rendre importante ou non.
+    var isFlagged: Bool?
 
     // Exigés par le schéma, sans équivalent dans le planner.
     var tags: Set<String>?
-    var isFlagged: Bool?
     var recurrence: Calendar.RecurrenceRule?
     var locationTrigger: LocationTriggerEntity?
 
@@ -253,6 +258,7 @@ struct UpdateTaskReminderIntent {
         }
         changes.isDone = isCompleted
         changes.listID = list?.id
+        changes.isImportant = isFlagged
 
         guard let updated = try await store.updateTask(id: target.id, changes) else {
             throw PlannerIntentError.itemNotFound

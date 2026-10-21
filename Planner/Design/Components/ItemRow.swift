@@ -6,6 +6,9 @@
 //                     Sous-titre
 //                     Détails (s'il y en a, 2 lignes max)
 //
+//  Une tâche importante (pas encore faite) porte en plus une étiquette
+//  « ★ IMPORTANT » au-dessus du titre et un contour de la couleur d'accent.
+//
 
 import SwiftUI
 
@@ -16,8 +19,13 @@ struct ItemRow: View {
     let isDone: Bool
     /// Notes de l'élément ; rien n'est affiché si c'est vide.
     var details: String = ""
+    /// Tâche importante : étiquette « ★ Important » et contour accent.
+    var isImportant: Bool = false
     /// nil = pas de case à cocher (événements, vacances).
     var onToggle: (() -> Void)?
+
+    /// Une fois faite, une tâche importante n'a plus besoin d'attirer l'œil.
+    private var isHighlighted: Bool { isImportant && !isDone }
 
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
@@ -28,6 +36,10 @@ struct ItemRow: View {
                 .frame(minHeight: 34, maxHeight: .infinity)
 
             VStack(alignment: .leading, spacing: 3) {
+                if isHighlighted {
+                    Label("Important", systemImage: "star.fill")
+                        .plannerLabelStyle(color: Theme.Colors.accent)
+                }
                 Text(title)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(isDone ? Theme.Colors.inkSecondary : Theme.Colors.ink)
@@ -53,6 +65,12 @@ struct ItemRow: View {
         .padding(.trailing, 14)
         .padding(.vertical, Theme.Spacing.m)
         .plannerCard()
+        .overlay {
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: Theme.Radius.card)
+                    .strokeBorder(Theme.Colors.accent, lineWidth: 2)
+            }
+        }
     }
 }
 
@@ -102,7 +120,8 @@ struct CheckCircle: View {
     VStack {
         ItemRow(title: "lectures", subtitle: "méthodes qualitatives A",
                 color: CourseColor.blue.color, isDone: false,
-                details: "Chapitres 3 et 4, prendre des notes sur la méthode.", onToggle: {})
+                details: "Chapitres 3 et 4, prendre des notes sur la méthode.",
+                isImportant: true, onToggle: {})
         ItemRow(title: "texte", subtitle: "sociétés multiculturelles · 14:30",
                 color: CourseColor.violet.color, isDone: true, onToggle: {})
     }

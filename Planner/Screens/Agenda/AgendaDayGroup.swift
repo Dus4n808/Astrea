@@ -34,6 +34,7 @@ struct AgendaDayGroup: View {
                         color: item.displayColor,
                         isDone: item.isDone,
                         details: item.details,
+                        isImportant: item.isImportant,
                         onToggle: item.kind.isCheckable ? { toggle(item) } : nil
                     )
                     .contentShape(.rect)

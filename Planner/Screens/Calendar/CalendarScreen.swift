@@ -40,9 +40,8 @@ struct CalendarScreen: View {
 private struct CalendarContent: View {
     @Environment(AppState.self) private var appState
     @State private var state = CalendarState()
+    /// Place visible de l'écran, barres déduites.
     @State private var viewportSize: CGSize = .zero
-    /// Hauteur visible de la page en mise en page large (sans les barres).
-    @State private var pageHeight: CGFloat?
 
     let items: [PlannerItem]
     let index: ItemIndex
@@ -101,16 +100,18 @@ private struct CalendarContent: View {
             .padding(.vertical, Theme.Spacing.l)
             // Quand tout tient, la page fait exactement la hauteur visible :
             // la grille s'étire pour la remplir, comme hors d'un ScrollView.
-            .frame(height: layout.scrollsVertically ? nil : pageHeight)
+            //
+            // La hauteur vient de `viewportSize`, mesurée hors du ScrollView
+            // (barres déjà déduites). Elle était lue avant via
+            // `onScrollGeometryChange` : mais cette valeur imposait la hauteur
+            // du contenu, qui changeait la géométrie du défilement, qui la
+            // relançait… SwiftUI signalait alors « tried to update multiple
+            // times per frame » (redimensionnement de la fenêtre, barre latérale).
+            .frame(height: layout.scrollsVertically || viewportSize.height <= 0 ? nil : viewportSize.height)
         }
         // Fenêtre trop courte pour 6 semaines lisibles : on fait défiler
         // plutôt que d'écraser les cases jusqu'à couper les pastilles.
         .scrollDisabled(!layout.scrollsVertically)
-        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-            geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom
-        } action: { _, height in
-            pageHeight = height
-        }
     }
 
     private func compactLayout(layout: CalendarLayout) -> some View {

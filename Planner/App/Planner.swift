@@ -13,6 +13,7 @@
 import AppIntents
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct Planner: App {
@@ -27,6 +28,10 @@ struct Planner: App {
         let navigation = AppState.shared
         AppDependencyManager.shared.add(dependency: intentStore)
         AppDependencyManager.shared.add(dependency: navigation)
+
+        // Avant la fin du lancement : toucher une notification qui a lancé
+        // l'app doit quand même ouvrir la bonne fiche.
+        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
     }
 
     var body: some Scene {

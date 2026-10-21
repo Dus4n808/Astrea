@@ -32,10 +32,16 @@ struct AddTaskIntent: AppIntent {
     @Parameter(title: "Cours")
     var course: CourseEntity?
 
+    /// Ajouté après coup : la valeur par défaut garde intacts les raccourcis
+    /// déjà enregistrés (ils créent des tâches normales, comme avant).
+    @Parameter(title: "Important", default: false)
+    var isImportant: Bool
+
     static var parameterSummary: some ParameterSummary {
         Summary("Ajouter \(\.$taskTitle) à Astrea") {
             \.$dueDate
             \.$course
+            \.$isImportant
         }
     }
 
@@ -51,7 +57,8 @@ struct AddTaskIntent: AppIntent {
         let item = try await store.addItem(title: cleanTitle,
                                            kind: .task,
                                            date: day,
-                                           courseID: course?.id)
+                                           courseID: course?.id,
+                                           isImportant: isImportant)
 
         return .result(value: item, dialog: "« \(cleanTitle) » est ajoutée au \(Self.dayText(day)).")
     }
