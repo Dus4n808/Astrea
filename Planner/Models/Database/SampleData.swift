@@ -52,7 +52,7 @@ enum SampleData {
         items.forEach { context.insert($0) }
 
         // « texte » est déjà fait (barré dans l'ancienne app).
-        items.first { $0.title == "texte" }?.isDone = true
+        items.first { $0.title == "texte" }?.setDone(true)
 
         try? context.save()
     }

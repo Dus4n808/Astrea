@@ -194,7 +194,7 @@ private struct DetailStatusButton: View {
 
     var body: some View {
         Button {
-            withAnimation(.snappy) { item.isDone.toggle() }
+            withAnimation(.snappy) { item.toggleDone() }
         } label: {
             HStack(spacing: Theme.Spacing.m) {
                 Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")

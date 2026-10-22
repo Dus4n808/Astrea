@@ -110,7 +110,7 @@ actor PlannerIntentStore {
     func setDone(_ isDone: Bool, itemID: UUID) throws -> PlannerItemEntity? {
         let descriptor = FetchDescriptor<PlannerItem>(predicate: #Predicate { $0.uuid == itemID })
         guard let item = try modelContext.fetch(descriptor).first else { return nil }
-        item.isDone = isDone
+        item.setDone(isDone)
         try modelContext.save()
         return PlannerItemEntity(item)
     }
@@ -219,7 +219,7 @@ actor PlannerIntentStore {
         if let details = changes.details { item.details = details }
         if let date = changes.date { item.date = date }
         if let isAllDay = changes.isAllDay { item.isAllDay = isAllDay }
-        if let isDone = changes.isDone { item.isDone = isDone }
+        if let isDone = changes.isDone { item.setDone(isDone) }
         if let listID = changes.listID { item.course = try course(forListID: listID) }
         if let isImportant = changes.isImportant { item.isImportant = isImportant }
 

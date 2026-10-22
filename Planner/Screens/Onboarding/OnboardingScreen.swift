@@ -22,10 +22,49 @@ struct OnboardingScreen: View {
     private var error: UserName.ValidationError? { UserName.validate(draft) }
     private var cleanName: String { UserName.normalized(draft) }
 
+    /// Hauteur visible de l'écran, clavier déduit.
+    @State private var viewportHeight: CGFloat = 0
+
+    /// iPhone / iPad, clavier ouvert : l'étoile rapetisse pour que le champ
+    /// et « C'est parti » restent au-dessus du clavier.
+    private var isCompact: Bool {
+        #if os(iOS)
+        isFieldFocused
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
+        // Centré quand tout tient ; sinon (petit iPhone, clavier ouvert) ça
+        // défile, calé en bas pour garder le champ et le bouton visibles.
+        ScrollView {
+            content
+                .frame(maxWidth: .infinity, minHeight: viewportHeight)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .defaultScrollAnchor(.bottom)
+        #if os(iOS)
+        // Glisser vers le bas range le clavier.
+        .scrollDismissesKeyboard(.interactively)
+        #endif
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
+        .background(Theme.Colors.background)
+        .tint(Theme.Colors.accent)
+        #if os(macOS)
+        // Sur Mac, le curseur est prêt dans le champ. Sur iPhone / iPad, pas de
+        // clavier à l'ouverture : il cacherait l'étoile et l'accueil ; il
+        // s'ouvre quand on touche le champ.
+        .onAppear { isFieldFocused = true }
+        #endif
+    }
+
+    private var content: some View {
         VStack(spacing: Theme.Spacing.l) {
+            let starSize: CGFloat = isCompact ? 120 : 260
             FloatingStar(isCelebrating: isCelebrating)
-                .frame(width: 260, height: 260)
+                .frame(width: starSize, height: starSize)
+                .animation(.snappy, value: isCompact)
                 .accessibilityHidden(true)
 
             VStack(spacing: Theme.Spacing.s) {
@@ -70,10 +109,6 @@ struct OnboardingScreen: View {
         }
         .padding(Theme.Spacing.xl)
         .frame(maxWidth: 420)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.Colors.background)
-        .tint(Theme.Colors.accent)
-        .onAppear { isFieldFocused = true }
     }
 
     /// « Bienvenue » tant que rien n'est tapé, puis « Salut, Léa ! »

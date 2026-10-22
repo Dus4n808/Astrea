@@ -147,9 +147,17 @@ extension View {
     /// La carte blanche de l'app : fond `surface`, coins arrondis et ombre rose
     /// très douce. C'est ce qui se pose sur le fond rose pâle — les lignes de
     /// l'agenda comme les blocs de l'éditeur.
+    ///
+    /// L'ombre est posée sur la forme du fond seulement, pas sur la carte
+    /// entière : sinon SwiftUI la calcule à partir de tout le contenu (textes,
+    /// icônes) dans une passe hors écran, pour chaque carte, à chaque image
+    /// du défilement. Le rendu est le même.
     func plannerCard(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
         self
-            .background(Theme.Colors.surface, in: .rect(cornerRadius: cornerRadius))
-            .shadow(color: Theme.Colors.accentDeep.opacity(0.06), radius: 6, y: 2)
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Theme.Colors.surface)
+                    .shadow(color: Theme.Colors.accentDeep.opacity(0.06), radius: 6, y: 2)
+            }
     }
 }

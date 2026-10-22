@@ -67,27 +67,31 @@ struct ItemEditorView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                    ThemedSegmentedPicker(options: ItemKind.allCases, selection: $draft.kind) { $0.title }
-                    EditorTitleField(title: $draft.title, isFocused: $isTitleFocused)
-                    if draft.kind != .holiday { EditorCourseSection(selection: $draft.course) }
-                    EditorDateSection(kind: draft.kind, date: $draft.date,
-                                      endDate: $draft.endDate, isAllDay: $draft.isAllDay)
-                    if draft.kind != .holiday {
-                        EditorReminderSection(reminder: $draft.reminder, isAllDay: draft.isAllDay,
-                                              isImportant: draft.kind == .task && draft.isImportant)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                        ThemedSegmentedPicker(options: ItemKind.allCases, selection: $draft.kind) { $0.title }
+                        EditorTitleField(title: $draft.title, isFocused: $isTitleFocused)
+                        if draft.kind != .holiday { EditorCourseSection(selection: $draft.course) }
+                        EditorDateSection(kind: draft.kind, date: $draft.date,
+                                          endDate: $draft.endDate, isAllDay: $draft.isAllDay,
+                                          reveal: { await revealDateSection(with: proxy) })
+                            .id(EditorDateSection.scrollID)
+                        if draft.kind != .holiday {
+                            EditorReminderSection(reminder: $draft.reminder, isAllDay: draft.isAllDay,
+                                                  isImportant: draft.kind == .task && draft.isImportant)
+                        }
+                        if draft.kind == .task { EditorImportantSection(isImportant: $draft.isImportant) }
+                        EditorDetailsSection(details: $draft.details, isFocused: $isDetailsFocused)
+                        if draft.kind == .task { EditorChecklistSection(lines: $draft.checklist, focusedLine: $focusedChecklistLine) }
+                        if request.isEditing { deleteButton }
                     }
-                    if draft.kind == .task { EditorImportantSection(isImportant: $draft.isImportant) }
-                    EditorDetailsSection(details: $draft.details, isFocused: $isDetailsFocused)
-                    if draft.kind == .task { EditorChecklistSection(lines: $draft.checklist, focusedLine: $focusedChecklistLine) }
-                    if request.isEditing { deleteButton }
+                    .padding(Theme.Spacing.xl)
+                    // La feuille peut être large (Mac, iPad) : au-delà, les lignes
+                    // deviennent trop longues à lire, on centre plutôt.
+                    .frame(maxWidth: 560)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(Theme.Spacing.xl)
-                // La feuille peut être large (Mac, iPad) : au-delà, les lignes
-                // deviennent trop longues à lire, on centre plutôt.
-                .frame(maxWidth: 560)
-                .frame(maxWidth: .infinity)
             }
             .background(Theme.Colors.background)
             #if os(iOS)
@@ -127,6 +131,33 @@ struct ItemEditorView: View {
                 dismiss()
             }
         }
+    }
+
+    /// Avant d'ouvrir le calendrier ou l'heure (iPhone) : clavier ouvert et
+    /// feuille défilée vers le bas, la carte « Quand » se retrouve collée en
+    /// haut de l'écran et le calendrier n'a plus la place de s'afficher.
+    /// On range le clavier et on remonte la carte en haut de la zone visible,
+    /// en même temps ; le sélecteur s'ouvre ensuite dessous, en entier.
+    private func revealDateSection(with proxy: ScrollViewProxy) async {
+        #if os(iOS)
+        let keyboardWasUp = isTitleFocused || isDetailsFocused || focusedChecklistLine != nil
+        let start = ContinuousClock.now
+        isTitleFocused = false
+        isDetailsFocused = false
+        focusedChecklistLine = nil
+        await withCheckedContinuation { continuation in
+            withAnimation(.snappy(duration: 0.3)) {
+                proxy.scrollTo(EditorDateSection.scrollID, anchor: .top)
+            } completion: {
+                continuation.resume()
+            }
+        }
+        // Le popover se place d'après l'écran final : on attend que le
+        // clavier ait fini de descendre.
+        if keyboardWasUp {
+            try? await Task.sleep(until: start + .milliseconds(320))
+        }
+        #endif
     }
 
     private var deleteButton: some View {
@@ -275,18 +306,23 @@ private struct EditorDateSection: View {
     @Binding var date: Date
     @Binding var endDate: Date
     @Binding var isAllDay: Bool
+    /// Rend la carte entièrement visible avant d'ouvrir un sélecteur.
+    let reveal: () async -> Void
+
+    /// Repère de défilement de la carte (voir `revealDateSection`).
+    static let scrollID = "EditorDateSection"
 
     var body: some View {
         EditorCard("Quand") {
             VStack(spacing: 0) {
                 let dayLabel = kind == .holiday ? "Du" : "Date"
                 EditorRow(dayLabel, showsSeparator: false) {
-                    EditorDateField(dayLabel, selection: $date)
+                    EditorDateField(dayLabel, selection: $date, reveal: reveal)
                 }
 
                 if kind == .holiday {
                     EditorRow("Au") {
-                        EditorDateField("Au", selection: $endDate, from: date)
+                        EditorDateField("Au", selection: $endDate, from: date, reveal: reveal)
                     }
                 } else {
                     // Heure facultative : sans heure, l'élément est simplement
@@ -304,7 +340,7 @@ private struct EditorDateSection: View {
                             .buttonStyle(.plain)
                         } else {
                             HStack(spacing: Theme.Spacing.s) {
-                                EditorTimeField(selection: $date)
+                                EditorTimeField(selection: $date, reveal: reveal)
                                 Button("Retirer l'heure", systemImage: "xmark") {
                                     isAllDay = true
                                 }
@@ -655,18 +691,28 @@ private struct EditorDateField: View {
     let label: String
     @Binding var selection: Date
     let minimum: Date?
+    let reveal: () async -> Void
 
-    init(_ label: String, selection: Binding<Date>, from minimum: Date? = nil) {
+    init(_ label: String, selection: Binding<Date>, from minimum: Date? = nil,
+         reveal: @escaping () async -> Void) {
         self.label = label
         self._selection = selection
         self.minimum = minimum
+        self.reveal = reveal
     }
 
     @State private var isPresented = false
 
     var body: some View {
         Button {
-            isPresented.toggle()
+            if isPresented {
+                isPresented = false
+            } else {
+                Task {
+                    await reveal()
+                    isPresented = true
+                }
+            }
         } label: {
             // Sans l'année : on planifie un semestre, elle n'apporte rien.
             EditorCapsule(text: selection.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(.planner)),
@@ -675,7 +721,7 @@ private struct EditorDateField: View {
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .accessibilityValue(selection.formatted(date: .long, time: .omitted))
-        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+        .popover(isPresented: $isPresented, arrowEdge: editorPopoverArrowEdge) {
             // Calendrier maison sur toutes les plateformes : le DatePicker du
             // système garde sa propre couleur (bleu sur Mac, accent système
             // sur iOS). Choisir un jour referme le popover, comme un menu.
@@ -693,11 +739,19 @@ private struct EditorDateField: View {
 /// Même rendu sur Mac et iPhone (popover, y compris sur écran compact).
 private struct EditorTimeField: View {
     @Binding var selection: Date
+    let reveal: () async -> Void
     @State private var isPresented = false
 
     var body: some View {
         Button {
-            isPresented.toggle()
+            if isPresented {
+                isPresented = false
+            } else {
+                Task {
+                    await reveal()
+                    isPresented = true
+                }
+            }
         } label: {
             EditorCapsule(text: selection.timeText, systemImage: "clock")
                 .monospacedDigit()
@@ -705,13 +759,26 @@ private struct EditorTimeField: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Heure")
         .accessibilityValue(selection.timeText)
-        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+        .popover(isPresented: $isPresented, arrowEdge: editorPopoverArrowEdge) {
             MiniTimePicker(selection: $selection)
                 .presentationBackground(Theme.Colors.surface)
                 // Sur iPhone, un popover devient sinon une feuille plein écran.
                 .presentationCompactAdaptation(.popover)
         }
     }
+}
+
+/// Côté d'où sortent le calendrier et l'heure.
+/// - Mac : au-dessus du champ, comme avant.
+/// - iOS : le système choisit le côté où il y a de la place. Imposé « au-dessus »,
+///   le calendrier était coupé dès que le champ se trouvait en haut de l'écran
+///   (le bord de la flèche est respecté sur iOS depuis 18.1).
+private var editorPopoverArrowEdge: Edge? {
+    #if os(macOS)
+    .bottom
+    #else
+    nil
+    #endif
 }
 
 /// Capsule teintée des champs de la carte « Quand » (date, heure, ajout).

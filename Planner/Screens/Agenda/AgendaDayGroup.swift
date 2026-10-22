@@ -51,6 +51,6 @@ struct AgendaDayGroup: View {
     private var isToday: Bool { Calendar.planner.isDateInToday(day) }
 
     private func toggle(_ item: PlannerItem) {
-        withAnimation(.snappy) { item.isDone.toggle() }
+        withAnimation(.snappy) { item.toggleDone() }
     }
 }

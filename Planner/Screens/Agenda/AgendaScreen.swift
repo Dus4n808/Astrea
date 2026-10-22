@@ -28,8 +28,8 @@ struct AgendaScreen: View {
     var body: some View {
         // Calculés une seule fois par mise à jour : chacun parcourt tous les
         // éléments, et ils servent chacun à deux endroits.
-        let groups = self.groups
         let weekProgress = self.weekProgress
+        let (groups, celebratesWeek) = Self.celebrating(self.groups, weekComplete: filter == .todo && weekProgress.isComplete)
 
         ScrollView {
             // Paresseuse : avec le filtre « Fait » ou « Tout », la liste grandit
@@ -55,6 +55,11 @@ struct AgendaScreen: View {
                     EmptyStateView(title: filter.emptyTitle, message: filter.emptyMessage,
                                    celebrates: filter == .todo && weekProgress.isComplete)
                 } else {
+                    if celebratesWeek {
+                        EmptyStateView(title: "Semaine bouclée !",
+                                       message: "Tout est fait pour cette semaine. Voici la suite.",
+                                       celebrates: true)
+                    }
                     ForEach(groups) { group in
                         // Une seule vue par jour (le filet éventuel est dedans) :
                         // la pile paresseuse n'a pas à évaluer chaque jour pour
@@ -84,6 +89,9 @@ struct AgendaScreen: View {
             }
         }
         .animation(.snappy, value: filter)
+        // L'étoile 3D de la semaine bouclée peut surgir à tout moment (dernière
+        // tâche cochée) : son modèle est lu d'avance pour qu'elle arrive sans à-coup.
+        .task { StarModel.preload() }
     }
 
     // MARK: - Données dérivées
@@ -92,22 +100,67 @@ struct AgendaScreen: View {
     ///
     /// La carte de progression ne compte que la semaine en cours : un filet
     /// marque donc l'endroit où la liste entre dans cette semaine (après des
-    /// tâches en retard) et celui où elle en sort (« Plus tard »).
+    /// tâches en retard) et ceux où elle en sort (« Semaine prochaine »,
+    /// puis « Plus tard »).
     private var groups: [AgendaDay] {
         let calendar = Calendar.planner
         let weekStart = calendar.startOfWeek(for: .now)
         let nextWeekStart = calendar.date(byAdding: .weekOfYear, value: 1, to: weekStart) ?? weekStart
+        let laterStart = calendar.date(byAdding: .weekOfYear, value: 2, to: weekStart) ?? nextWeekStart
         let visible = items.filter { filter.includes($0, from: weekStart) }
-        let byDay = Dictionary(grouping: visible) { calendar.startOfDay(for: $0.date) }
 
+        func period(of day: Date) -> AgendaPeriod {
+            switch day {
+            case ..<weekStart:     .past
+            case ..<nextWeekStart: .thisWeek
+            case ..<laterStart:    .nextWeek
+            default:               .later
+            }
+        }
+
+        // « Fait » : un historique, la dernière tâche terminée en haut.
+        // Regroupé par jour de complétion, sans filets de semaine.
+        if filter == .done {
+            let byDay = Dictionary(grouping: visible) { calendar.startOfDay(for: $0.doneSortDate) }
+            return byDay.keys.sorted(by: >).map { day in
+                let items = (byDay[day] ?? []).sorted { $0.doneSortDate > $1.doneSortDate }
+                return AgendaDay(day: day, items: items, period: period(of: day))
+            }
+        }
+
+        let byDay = Dictionary(grouping: visible) { calendar.startOfDay(for: $0.date) }
         var previous: AgendaPeriod?
         return byDay.keys.sorted().map { day in
-            let period: AgendaPeriod = day < weekStart ? .past
-                : (day < nextWeekStart ? .thisWeek : .later)
+            let period = period(of: day)
             // Pas de filet tout en haut : seulement au changement de période.
             let title = (previous != nil && previous != period) ? period.separatorTitle : nil
             previous = period
-            return AgendaDay(day: day, items: Self.importantFirst(byDay[day] ?? []), separatorTitle: title)
+            return AgendaDay(day: day, items: Self.importantFirst(byDay[day] ?? []),
+                             period: period, separatorTitle: title)
+        }
+    }
+
+    /// Semaine bouclée mais des éléments prévus ensuite : on fête quand même
+    /// (la liste n'est pas vide), puis la suite arrive sous un filet, y
+    /// compris tout en haut, pour dire de quelle semaine il s'agit.
+    static func celebrating(_ groups: [AgendaDay], weekComplete: Bool) -> (groups: [AgendaDay], celebrates: Bool) {
+        guard weekComplete, !groups.isEmpty, !hasPendingTasksBeforeNextWeek(groups) else {
+            return (groups, false)
+        }
+        var groups = groups
+        if groups[0].separatorTitle == nil {
+            groups[0].separatorTitle = groups[0].period.separatorTitle
+        }
+        return (groups, true)
+    }
+
+    /// Reste-t-il une tâche à cocher avant la semaine prochaine (en retard ou
+    /// cette semaine) ? Les évènements ne se cochent pas : ils n'empêchent
+    /// pas de fêter la semaine.
+    static func hasPendingTasksBeforeNextWeek(_ groups: [AgendaDay]) -> Bool {
+        groups.contains { group in
+            (group.period == .past || group.period == .thisWeek)
+                && group.items.contains { $0.kind == .task && !$0.isDone }
         }
     }
 
@@ -133,19 +186,21 @@ struct AgendaScreen: View {
 struct AgendaDay: Identifiable {
     let day: Date
     let items: [PlannerItem]
+    let period: AgendaPeriod
     /// Filet à afficher juste avant ce jour (changement de semaine), ou nil.
     var separatorTitle: String? = nil
     var id: Date { day }
 }
 
 /// Position d'un jour par rapport à la semaine en cours.
-private enum AgendaPeriod {
-    case past, thisWeek, later
+enum AgendaPeriod {
+    case past, thisWeek, nextWeek, later
 
     var separatorTitle: String {
         switch self {
         case .past:     "En retard"
         case .thisWeek: "Cette semaine"
+        case .nextWeek: "Semaine prochaine"
         case .later:    "Plus tard"
         }
     }

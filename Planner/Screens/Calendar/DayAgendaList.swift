@@ -52,7 +52,7 @@ struct DayAgendaList: View {
     }
 
     private func toggle(_ item: PlannerItem) {
-        withAnimation(.snappy) { item.isDone.toggle() }
+        withAnimation(.snappy) { item.toggleDone() }
     }
 }
 

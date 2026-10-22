@@ -27,14 +27,18 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         [.banner, .list, .sound]
     }
 
-    nonisolated func userNotificationCenter(
+    /// Sur le main actor, pas `nonisolated` : quand cette méthode async se
+    /// termine, Swift rappelle le completion handler d'UIKit sur le thread
+    /// où elle a fini. Hors du main thread, UIKit lève une assertion et
+    /// l'app plante dès qu'on touche la notification.
+    @MainActor
+    func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        // Lu ici : `userInfo` ne peut pas franchir le saut vers le main actor.
         let rawID = response.notification.request.content.userInfo[Self.itemIDKey] as? String
         guard let rawID, let itemID = UUID(uuidString: rawID) else { return }
-        await openItem(itemID)
+        openItem(itemID)
     }
 
     /// Ouvre la fiche de l'élément, s'il existe encore (il a pu être

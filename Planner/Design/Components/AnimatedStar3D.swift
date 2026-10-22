@@ -13,9 +13,6 @@ import RealityKit
 struct AnimatedStar3D: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Nom du fichier .usdz dans le bundle.
-    private static let modelName = "Star_WeekComplete"
-
     /// En boucle (onboarding) ou un seul rebond (semaine bouclée).
     var repeats = true
 
@@ -49,7 +46,7 @@ struct AnimatedStar3D: View {
             // Sans ça, l'iPhone ouvrirait la caméra (mode AR).
             content.camera = .virtual
             #endif
-            guard let star = try? await Entity(named: Self.modelName) else {
+            guard let star = await StarModel.instance() else {
                 didFail = true
                 return
             }
@@ -110,6 +107,39 @@ struct AnimatedStar3D: View {
         let visibleWidth = 2 * cameraDistance * tan(fieldOfView / 2 * .pi / 180)
         let lift = Float(topRoom * aspect / 2) * visibleWidth
         return [0, lift, cameraDistance]
+    }
+}
+
+/// Le modèle de l'étoile, lu une seule fois.
+///
+/// Sans ce cache, chaque apparition relisait et décodait le .usdz (≈ 800 Ko) :
+/// c'est ce qui faisait accrocher l'écran au moment où l'étoile arrive
+/// (bascule du filtre de l'agenda, retour sur la liste…). Chaque étoile
+/// affichée est un clone : il partage les maillages et les animations du
+/// modèle, et se crée presque instantanément.
+@MainActor
+enum StarModel {
+    /// Nom du fichier .usdz dans le bundle.
+    private static let name = "Star_WeekComplete"
+
+    private static var loading: Task<Entity?, Never>?
+
+    /// Une étoile prête à poser dans une scène (nil si le modèle est illisible).
+    static func instance() async -> Entity? {
+        let task = loading ?? Task { try? await Entity(named: name) }
+        loading = task
+        guard let model = await task.value else {
+            // Échec : on retentera à la prochaine apparition.
+            loading = nil
+            return nil
+        }
+        return model.clone(recursive: true)
+    }
+
+    /// Lance la lecture en avance, pour que la première étoile s'affiche sans
+    /// attente ni à-coup.
+    static func preload() {
+        Task { _ = await instance() }
     }
 }
 
