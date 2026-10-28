@@ -52,5 +52,7 @@ struct AgendaDayGroup: View {
 
     private func toggle(_ item: PlannerItem) {
         withAnimation(.snappy) { item.toggleDone() }
+        // Seulement quand la tâche passe à « faite », pas quand on la décoche.
+        if item.isDone { CompletionSound.play() }
     }
 }

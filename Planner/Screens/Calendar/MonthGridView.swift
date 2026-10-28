@@ -20,7 +20,9 @@ struct MonthGridView: View {
                     ForEach(Array(week.enumerated()), id: \.element.id) { column, day in
                         DayCell(
                             day: day,
-                            items: index.items(on: day.date),
+                            // Les tâches faites quittent la grille : on les
+                            // retrouve dans l'Agenda, section « Fait ».
+                            items: index.items(on: day.date).filter { !$0.isDone },
                             isToday: state.isToday(day.date),
                             isSelected: state.isSelected(day.date),
                             isWeekend: column >= 5,
